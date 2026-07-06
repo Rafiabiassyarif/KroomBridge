@@ -1,0 +1,6 @@
+{
+  "name": "KroomBridge API Gateway",
+  "description": "Unified API Gateway and Management Dashboard for KroomBridge Environment. Manages APIs, JWT auth, packages, and clients.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

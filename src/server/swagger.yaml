@@ -1,0 +1,531 @@
+openapi: 3.0.0
+info:
+  title: Kroombox API Gateway
+  description: Dokumentasi Lengkap API Gateway untuk Kroombox, mencakup manajemen klien, proxy, metrik GPU, event realtime, dan panel admin.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Local server
+  - url: "{appUrl}"
+    description: Production server
+    variables:
+      appUrl:
+        default: https://api.kroombox.com
+        description: Base URL untuk Production
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: 'Gunakan format: Bearer {API_KEY}'
+
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+
+paths:
+  # ---------------------------------------------------------
+  # GENERAL API
+  # ---------------------------------------------------------
+  /api/health:
+    get:
+      tags: [General]
+      summary: Cek status kesehatan server
+      security: []
+      responses:
+        '200':
+          description: OK
+
+  /api/info:
+    get:
+      tags: [General]
+      summary: Info Publik API Gateway (Paket, Route)
+      security: []
+      responses:
+        '200':
+          description: OK
+
+  # ---------------------------------------------------------
+  # API TESTER (PROXY)
+  # ---------------------------------------------------------
+  /api/proxy:
+    post:
+      tags: [Proxy & Tester]
+      summary: Proxy untuk membypass CORS di fitur API Tester
+      responses:
+        '200':
+          description: Response dari target proxy
+
+  /api/proxy/history:
+    get:
+      tags: [Proxy & Tester]
+      summary: Lihat riwayat testing proxy
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Proxy & Tester]
+      summary: Hapus semua riwayat proxy
+      responses:
+        '200':
+          description: Berhasil
+
+  # ---------------------------------------------------------
+  # AUTHENTICATION
+  # ---------------------------------------------------------
+  /api/auth/token:
+    post:
+      tags: [Authentication]
+      summary: Generate Token Akses Klien berdasarkan API Key
+      responses:
+        '200':
+          description: Sukses
+        '401':
+          description: Unauthorized
+
+  /api/auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Refresh Token Klien
+      responses:
+        '200':
+          description: Sukses
+
+  /api/auth/validate:
+    post:
+      tags: [Authentication]
+      summary: Validasi Token Klien
+      responses:
+        '200':
+          description: Valid
+
+  # ---------------------------------------------------------
+  # ADMIN MANAGEMENT
+  # ---------------------------------------------------------
+  /api/admin/login:
+    post:
+      tags: [Admin]
+      summary: Login Administrator
+      security: []
+      responses:
+        '200':
+          description: Token JWT Admin
+
+  /api/admin/validate-token:
+    get:
+      tags: [Admin]
+      summary: Validasi sesi/token Admin
+      responses:
+        '200':
+          description: Sesi Valid
+
+  /api/admin/dashboard-stats:
+    get:
+      tags: [Admin Analytics]
+      summary: Statistik utama untuk Admin Dashboard (Cards)
+      responses:
+        '200':
+          description: Data Statistik
+
+  /api/admin/timeseries:
+    get:
+      tags: [Admin Analytics]
+      summary: Data Grafik Traffic Berjalan
+      responses:
+        '200':
+          description: Data Grafik
+
+  # Admin - GPU
+  /api/admin/gpu:
+    get:
+      tags: [Admin GPU]
+      summary: Daftar Host GPU yang terhubung
+      responses:
+        '200':
+          description: OK
+          
+  /api/admin/gpu/{hostId}/history:
+    get:
+      tags: [Admin GPU]
+      summary: Riwayat Metrik Performa (Usage/Temp) untuk suatu GPU
+      parameters:
+        - in: path
+          name: hostId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Array Metrik GPU
+
+  # Admin - Clients
+  /api/admin/clients:
+    get:
+      tags: [Admin Clients]
+      summary: Daftar Semua Klien
+      responses:
+        '200':
+          description: OK
+    post:
+      tags: [Admin Clients]
+      summary: Tambah Klien Baru
+      responses:
+        '200':
+          description: OK
+          
+  /api/admin/clients/{id}:
+    get:
+      tags: [Admin Clients]
+      summary: Detail Klien
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+    patch:
+      tags: [Admin Clients]
+      summary: Update Klien
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin Clients]
+      summary: Hapus Klien
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+
+  /api/admin/clients/{id}/toggle:
+    patch:
+      tags: [Admin Clients]
+      summary: Aktifkan / Non-aktifkan Akses Klien
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+
+  /api/admin/clients/{id}/rotate:
+    post:
+      tags: [Admin Clients]
+      summary: Rotasi API Key Klien
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+
+  /api/admin/clients/{id}/reset-usage:
+    post:
+      tags: [Admin Clients]
+      summary: Reset manual pemakaian kuota bulanan Klien
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+
+  # Admin - Packages
+  /api/admin/packages:
+    get:
+      tags: [Admin Packages]
+      summary: Daftar Paket (Packages)
+      responses:
+        '200':
+          description: OK
+    post:
+      tags: [Admin Packages]
+      summary: Buat Paket Baru
+      responses:
+        '200':
+          description: OK
+
+  /api/admin/packages/{id}:
+    patch:
+      tags: [Admin Packages]
+      summary: Update Paket
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin Packages]
+      summary: Hapus Paket
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+
+  # Admin - Routes
+  /api/admin/routes:
+    get:
+      tags: [Admin Routes]
+      summary: Daftar Semua Gateway Routes
+      responses:
+        '200':
+          description: OK
+    post:
+      tags: [Admin Routes]
+      summary: Tambah Gateway Route
+      responses:
+        '200':
+          description: OK
+
+  /api/admin/routes/{id}:
+    patch:
+      tags: [Admin Routes]
+      summary: Update Gateway Route
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin Routes]
+      summary: Hapus Gateway Route
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+
+  # Admin - Users
+  /api/admin/users:
+    get:
+      tags: [Admin Users]
+      summary: Daftar Admin Users
+      responses:
+        '200':
+          description: OK
+    post:
+      tags: [Admin Users]
+      summary: Tambah Admin User
+      responses:
+        '200':
+          description: OK
+
+  /api/admin/users/{id}:
+    patch:
+      tags: [Admin Users]
+      summary: Update Profil/Password Admin
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin Users]
+      summary: Hapus Admin
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+
+  # Admin - Settings
+  /api/admin/settings/meta:
+    get:
+      tags: [Admin Settings]
+      summary: Ambil Konfigurasi Sistem Global (Meta)
+      responses:
+        '200':
+          description: OK
+    patch:
+      tags: [Admin Settings]
+      summary: Perbarui Konfigurasi Sistem Global
+      responses:
+        '200':
+          description: OK
+
+  # Admin - Logs
+  /api/admin/logs:
+    get:
+      tags: [Admin Logs]
+      summary: Ambil riwayat Log Traffic (Pagination & Filtering)
+      responses:
+        '200':
+          description: OK
+    delete:
+      tags: [Admin Logs]
+      summary: Bersihkan semua log
+      responses:
+        '200':
+          description: OK
+
+  # ---------------------------------------------------------
+  # PROXY GATEWAY
+  # ---------------------------------------------------------
+  /gateway/{target}:
+    get:
+      tags: [Proxy Gateway]
+      summary: Forward Request ke Upstream Target (GET)
+      parameters:
+        - in: path
+          name: target
+          required: true
+          schema:
+            type: string
+          description: Parameter Route Target (misal whatsapp)
+      responses:
+        '200':
+          description: Proxy Response
+    post:
+      tags: [Proxy Gateway]
+      summary: Forward Request ke Upstream Target (POST)
+      parameters:
+        - in: path
+          name: target
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Proxy Response
+
+  # ---------------------------------------------------------
+  # EVENT BUS
+  # ---------------------------------------------------------
+  /api/events/health:
+    get:
+      tags: [Event Bus]
+      summary: Cek kesehatan event bus / SSE broadcaster
+      responses:
+        '200':
+          description: OK
+
+  /api/events/stream:
+    get:
+      tags: [Event Bus]
+      summary: Server-Sent Events (SSE) Stream untuk log realtime
+      responses:
+        '200':
+          description: SSE Stream Connection
+
+  # ---------------------------------------------------------
+  # GPU METRICS
+  # ---------------------------------------------------------
+  /api/gpu/health:
+    get:
+      tags: [GPU Metrics]
+      summary: Cek kesehatan API penerima metrik GPU
+      responses:
+        '200':
+          description: OK
+
+  /api/gpu/report:
+    post:
+      tags: [GPU Metrics]
+      summary: Webhook untuk menerima metrik usage dari server GPU Worker
+      security: []
+      responses:
+        '200':
+          description: Berhasil diterima
+
+  # ---------------------------------------------------------
+  # INTEGRATIONS (Webhook & Sync)
+  # ---------------------------------------------------------
+  /api/integration/webhook/purchase:
+    post:
+      tags: [Integration]
+      summary: Webhook saat user membeli paket API (Auto-create client)
+      responses:
+        '201':
+          description: Client created
+
+  /api/integration/webhook/cancel:
+    post:
+      tags: [Integration]
+      summary: Webhook saat user membatalkan paket
+      responses:
+        '200':
+          description: Client deactivated
+
+  /api/integration/webhook/upgrade:
+    post:
+      tags: [Integration]
+      summary: Webhook saat user upgrade/downgrade paket
+      responses:
+        '200':
+          description: Client package updated
+
+  /api/integration/client-info/{clientId}:
+    get:
+      tags: [Integration]
+      summary: Cek status klien dari KroomBridge Panel
+      parameters:
+        - in: path
+          name: clientId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Status Klien
+
+  /api/integration/packages:
+    get:
+      tags: [Integration]
+      summary: Daftar paket untuk ditampilkan di Panel KroomBridge
+      responses:
+        '200':
+          description: Daftar Paket

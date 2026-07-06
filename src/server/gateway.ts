@@ -1,0 +1,543 @@
+import express, { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+import { db } from "./db.js";
+import { broadcast } from "./eventBus.js";
+
+const JWT_SECRET = process.env.JWT_SECRET || "kroombox_super_secret_key_123!";
+
+function countWords(data: any): number {
+  if (typeof data === "string") {
+    return data.trim().split(/\s+/).filter(Boolean).length;
+  }
+  if (typeof data === "object" && data !== null) {
+    let count = 0;
+    for (const key in data) {
+      count += countWords(data[key]);
+    }
+    return count;
+  }
+  return 0;
+}
+
+// ─── In-memory Rate Limiter ────────────────────────────────
+// Map: clientId → { count, resetAt }
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+// Bersihkan map setiap 5 menit agar tidak memory leak
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, val] of rateLimitMap.entries()) {
+      if (now > val.resetAt + 60000) rateLimitMap.delete(key);
+    }
+  },
+  5 * 60 * 1000,
+);
+
+// ─── Anomaly Detection ────────────────────────────────────
+// Map: clientId → requestsInLastSecond
+const anomalyMap = new Map<string, { count: number; resetAt: number }>();
+
+// ============================================================
+// GATEWAY MIDDLEWARE
+// ============================================================
+export const gatewayMiddleware = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const security = db.getSecurity();
+  const clientIp =
+    req.headers["x-forwarded-for"] ||
+    req.headers["x-real-ip"] ||
+    req.socket.remoteAddress ||
+    "";
+  const ipStr = (Array.isArray(clientIp) ? clientIp[0] : String(clientIp))
+    .split(",")[0]
+    .trim();
+
+  // ── 1. Cek HTTPS (jika diaktifkan) ──
+  if (security.requireHttps) {
+    const proto = req.headers["x-forwarded-proto"] || req.protocol;
+    if (proto !== "https") {
+      return res
+        .status(403)
+        .json({ error: "HTTPS wajib digunakan untuk mengakses gateway ini." });
+    }
+  }
+
+  // ── 2. Cek IP Denylist ──
+  const deniedEntry = security.ipDenylist.find(
+    (d) => ipStr === d.ip || ipStr.includes(d.ip) || d.ip.includes(ipStr),
+  );
+  if (deniedEntry) {
+    return res.status(403).json({
+      error: "IP Address Anda telah diblokir dari akses gateway ini.",
+      reason: deniedEntry.reason,
+    });
+  }
+
+  // ── 3. Cek IP Allowlist (jika ada isinya) ──
+  if (security.ipAllowlist.length > 0) {
+    const isAllowed = security.ipAllowlist.some(
+      (a) => ipStr === a.ip || ipStr.includes(a.ip) || a.ip.includes(ipStr),
+    );
+    if (!isAllowed) {
+      return res.status(403).json({
+        error: "IP Address Anda tidak terdaftar dalam allowlist gateway.",
+        yourIp: ipStr,
+      });
+    }
+  }
+
+  // ── 4. Verifikasi JWT Access Token ──
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({
+      error: "Authorization header hilang atau format salah.",
+      hint: "Sertakan header: Authorization: Bearer <access_token>",
+    });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const clientId = decoded.clientId;
+
+    const client = db.getClient(clientId);
+    if (!client) {
+      return res
+        .status(403)
+        .json({ error: "Klien tidak ditemukan dalam sistem" });
+    }
+    if (!client.isActive) {
+      return res.status(403).json({
+        error: "Akun klien Anda ditangguhkan. Hubungi admin untuk bantuan.",
+      });
+    }
+
+    // Reject token kalau secret key udah di-rotasi setelah token issued.
+    // Klien harus login ulang untuk dapat access token baru.
+    const currentKeyVersion = client.keyVersion ?? 1;
+    if ((decoded.keyVersion ?? 1) < currentKeyVersion) {
+      return res.status(401).json({
+        error: "Access token sudah dicabut karena Secret Key di-rotasi.",
+        hint: "Login ulang dengan Secret Key baru via POST /api/auth/token.",
+      });
+    }
+
+    const pkg = db.getPackage(client.packageId);
+    if (!pkg) {
+      return res
+        .status(500)
+        .json({ error: "Paket langganan klien tidak valid. Hubungi admin." });
+    }
+
+    // ── 5. Cek Kuota Bulanan ──
+    const activeQuota =
+      client.customQuota != null ? client.customQuota : pkg.monthlyQuota;
+    if (client.usageThisMonth >= activeQuota) {
+      if (!pkg.allowOverage) {
+        return res.status(429).json({
+          error: "Kuota bulanan Anda sudah habis.",
+          hint: "Silakan hubungi admin untuk upgrade paket atau topup kuota.",
+          usage: client.usageThisMonth,
+          quota: activeQuota,
+        });
+      }
+      // Overage diizinkan, lanjut dengan info peringatan
+      res.setHeader("X-Quota-Status", "overage");
+    }
+
+    // ── 6. Rate Limit per Menit ──
+    const now = Date.now();
+    let limitData = rateLimitMap.get(clientId);
+
+    if (!limitData || now > limitData.resetAt) {
+      limitData = { count: 0, resetAt: now + 60 * 1000 };
+    }
+
+    if (limitData.count >= pkg.maxRequestsPerMinute) {
+      const retryAfter = Math.ceil((limitData.resetAt - now) / 1000);
+      res.setHeader("Retry-After", String(retryAfter));
+      res.setHeader("X-RateLimit-Limit", String(pkg.maxRequestsPerMinute));
+      res.setHeader("X-RateLimit-Remaining", "0");
+      return res.status(429).json({
+        error: "Terlalu banyak permintaan. Rate limit terlampaui.",
+        limit: pkg.maxRequestsPerMinute,
+        retry_after_seconds: retryAfter,
+      });
+    }
+
+    // ── 7. Anomaly Detection (lebih dari 10x per detik) ──
+    if (security.rateLimitAnomalyDetection) {
+      let anomaly = anomalyMap.get(clientId);
+      if (!anomaly || now > anomaly.resetAt) {
+        anomaly = { count: 0, resetAt: now + 1000 };
+      }
+      anomaly.count++;
+      anomalyMap.set(clientId, anomaly);
+
+      if (anomaly.count > 20) {
+        console.warn(
+          `[ANOMALY] Klien ${clientId} membuat ${anomaly.count} permintaan dalam 1 detik!`,
+        );
+        // Bisa diblokir otomatis, saat ini hanya log
+      }
+    }
+
+    // ── 8. Cek Akses Endpoint (Permission) ──
+    const requestedPath = req.path;
+    const hasAccess = pkg.allowedEndpoints.some(
+      (ep) =>
+        ep === "*" || requestedPath === ep || requestedPath.startsWith(ep),
+    );
+    if (!hasAccess) {
+      return res.status(403).json({
+        error: `Paket Anda (${pkg.name}) tidak memiliki akses ke endpoint ${requestedPath}.`,
+        allowedEndpoints: pkg.allowedEndpoints,
+        hint: "Upgrade paket untuk akses lebih luas.",
+      });
+    }
+
+    // ── Increment & Inject ──
+    limitData.count += 1;
+    rateLimitMap.set(clientId, limitData);
+
+    // Set headers informatif
+    res.setHeader("X-RateLimit-Limit", String(pkg.maxRequestsPerMinute));
+    res.setHeader(
+      "X-RateLimit-Remaining",
+      String(pkg.maxRequestsPerMinute - limitData.count),
+    );
+    res.setHeader(
+      "X-RateLimit-Reset",
+      String(Math.ceil(limitData.resetAt / 1000)),
+    );
+    res.setHeader("X-Client-Id", clientId);
+    res.setHeader("X-Package", pkg.name);
+
+    (req as any).kroomboxClientId = clientId;
+    (req as any).kroomboxClientIp = ipStr;
+    (req as any).kroomboxPackage = pkg;
+
+    next();
+  } catch (err: any) {
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({
+        error: "Access token sudah kedaluwarsa.",
+        hint: "Gunakan refresh token untuk mendapatkan access token baru.",
+      });
+    }
+    return res.status(401).json({ error: "Access token tidak valid" });
+  }
+};
+
+// ============================================================
+// GATEWAY ROUTER
+// ============================================================
+export const gatewayRouter = express.Router();
+
+// Terapkan middleware ke semua route di bawah /gateway
+gatewayRouter.use(gatewayMiddleware);
+
+// ── Proxy Handler ──────────────────────────────────────────
+gatewayRouter.use(async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  const clientId: string = (req as any).kroomboxClientId;
+  const clientIp: string = (req as any).kroomboxClientIp;
+  const pkg = (req as any).kroomboxPackage;
+
+  const activeRoutes = db.getRoutes().filter((r) => r.isActive);
+
+  // Cari route yang cocok (paling spesifik diprioritaskan)
+  const matchedRoute = activeRoutes
+    .filter(
+      (r) =>
+        req.path === r.path ||
+        req.path.startsWith(r.path + "/") ||
+        req.path.startsWith(r.path),
+    )
+    .sort((a, b) => b.path.length - a.path.length)[0];
+
+  const logRequest = (statusCode: number, error?: string) => {
+    const client = db.getClient(clientId);
+    const entry = {
+      timestamp: new Date().toISOString(),
+      clientId: clientId || "unknown",
+      clientName: client?.name,
+      routeId: matchedRoute?.id || "unknown",
+      method: req.method,
+      path: req.path,
+      statusCode,
+      durationMs: Date.now() - startTime,
+      ipAddress: clientIp,
+      userAgent: req.headers["user-agent"],
+      error,
+    };
+    db.addLog(entry);
+    // Push event realtime ke dashboard yang subscribe SSE
+    try {
+      broadcast({ type: "log:new", data: entry });
+    } catch {
+      /* fail silently — event bus is best-effort */
+    }
+  };
+
+  if (!matchedRoute) {
+    logRequest(404, "Route tidak ditemukan");
+    return res.status(404).json({
+      error: "Endpoint tidak ditemukan di API Gateway.",
+      requested: req.path,
+      availableRoutes: activeRoutes.map((r) => r.path),
+    });
+  }
+
+  // Cek method jika route punya filter method
+  if (matchedRoute.method && matchedRoute.method !== "ALL") {
+    if (req.method !== matchedRoute.method) {
+      logRequest(405, "Method tidak diizinkan");
+      return res.status(405).json({
+        error: `Method ${req.method} tidak diizinkan untuk route ini. Gunakan ${matchedRoute.method}.`,
+      });
+    }
+  }
+
+  // ── Increment Usage ──
+  // Jika kuota request biasa, hitung 1 di awal — TAPI kalau upstream
+  // balikin error 5xx (Bad Gateway/timeout/upstream down), kita refund
+  // di akhir (logic di catch block + di branch 5xx response).
+  // Jika tipe token, hanya dihitung kalau response sukses 2xx.
+  let usageCharged = false;
+  if (pkg.quotaType !== "token") {
+    db.incrementUsage(clientId, 1);
+    usageCharged = true;
+  }
+
+  // ── Upstream Validation Shield ──
+  const security = db.getSecurity();
+  if (security.upstreamValidationShield) {
+    // Cek ukuran body
+    const bodyStr = JSON.stringify(req.body);
+    const bodySizeKb = Buffer.byteLength(bodyStr, "utf-8") / 1024;
+    const maxKb = security.maxBodySizeKb || 512;
+    if (bodySizeKb > maxKb) {
+      logRequest(413, "Body terlalu besar");
+      return res.status(413).json({
+        error: `Ukuran request body (${bodySizeKb.toFixed(1)}KB) melebihi batas ${maxKb}KB.`,
+      });
+    }
+  }
+
+  try {
+    // ── Bangun Target URL ──
+    const routePathLen = matchedRoute.path.length;
+    const remainder = req.path.slice(routePathLen);
+    const queryString =
+      Object.keys(req.query).length > 0
+        ? "?" + new URLSearchParams(req.query as any).toString()
+        : "";
+
+    let targetUrl: string;
+    try {
+      const base = matchedRoute.upstreamUrl.replace(/\/$/, "");
+      targetUrl = `${base}${remainder}${queryString}`;
+    } catch {
+      targetUrl = `${matchedRoute.upstreamUrl}${remainder}${queryString}`;
+    }
+
+    // ── Build Request Headers ──
+    const upstreamHeaders: Record<string, string> = {
+      "Content-Type": req.headers["content-type"] || "application/json",
+      "X-Forwarded-For": clientIp,
+      "X-Client-Id": clientId,
+      "X-Gateway": "KroomBridge-API-Gateway/2.0",
+      // Teruskan custom headers dari konfigurasi route
+      ...(matchedRoute.headers || {}),
+    };
+
+    // Jangan teruskan Authorization header dari klien ke upstream
+    // (upstream punya auth tersendiri)
+
+    // ── Transform Request Body ──
+    let processedBody = req.body;
+    if (
+      matchedRoute.transformations?.requestBodyMap &&
+      typeof processedBody === "object" &&
+      processedBody !== null
+    ) {
+      const mappedBody: Record<string, any> = {};
+      const map = matchedRoute.transformations.requestBodyMap;
+      for (const key in processedBody) {
+        const newKey = map[key] || key;
+        mappedBody[newKey] = processedBody[key];
+      }
+      processedBody = mappedBody;
+    }
+
+    // ── Override Request Body Fields ──
+    if (
+      matchedRoute.transformations?.requestBodyOverride &&
+      typeof processedBody === "object" &&
+      processedBody !== null
+    ) {
+      processedBody = {
+        ...processedBody,
+        ...matchedRoute.transformations.requestBodyOverride,
+      };
+    }
+
+    // ── Build Fetch Options ──
+    const fetchOptions: RequestInit = {
+      method: req.method,
+      headers: upstreamHeaders,
+      signal: AbortSignal.timeout(matchedRoute.timeout || 10000),
+    };
+
+    if (["POST", "PUT", "PATCH"].includes(req.method)) {
+      fetchOptions.body = JSON.stringify(processedBody);
+    }
+
+    // ── Call Upstream ──
+    const upstreamResponse = await fetch(targetUrl, fetchOptions);
+    const contentType = upstreamResponse.headers.get("content-type") || "";
+
+    logRequest(upstreamResponse.status);
+
+    // Refund usage kalau upstream balikin error (5xx / 502 / 504 / 429)
+    // atau kalau response itu sebenarnya halaman error CDN/Cloudflare.
+    // User TIDAK PERLU bayar token untuk request yang gak sukses.
+    const isUpstreamError = upstreamResponse.status >= 500;
+    if (isUpstreamError && usageCharged) {
+      db.incrementUsage(clientId, -1);
+      usageCharged = false;
+    }
+
+    const isStream = contentType.includes("event-stream") || processedBody?.stream === true;
+
+    if (isStream && upstreamResponse.body) {
+      res.setHeader("Content-Type", contentType || "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      const reader = upstreamResponse.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          fullText += chunk;
+          res.write(value);
+        }
+      } catch (err) {
+        console.error("[Gateway] Error reading stream:", err);
+      } finally {
+        res.end();
+      }
+
+      if (
+        pkg.quotaType === "token" &&
+        upstreamResponse.status >= 200 &&
+        upstreamResponse.status < 300
+      ) {
+        const inputWords = countWords(processedBody);
+        const outputWords = countWords(fullText);
+        const tokens = Math.max(1, inputWords + outputWords);
+        db.incrementUsage(clientId, tokens);
+      }
+      return;
+    }
+
+    if (contentType.includes("application/json")) {
+      let jsonResponse = await upstreamResponse.json();
+
+      // Hitung token jika quota type = token (Berdasarkan jumlah kata).
+      // SKIP kalau response error (5xx) — user tidak boleh kena charge
+      // untuk upstream yang gagal/timeout.
+      if (
+        pkg.quotaType === "token" &&
+        upstreamResponse.status >= 200 &&
+        upstreamResponse.status < 300
+      ) {
+        const inputWords = countWords(processedBody);
+        const outputWords = countWords(jsonResponse);
+        const tokens = Math.max(1, inputWords + outputWords);
+
+        db.incrementUsage(clientId, tokens);
+      }
+
+      // ── Transform Response Body ──
+      if (
+        matchedRoute.transformations?.responseBodyMap &&
+        typeof jsonResponse === "object" &&
+        jsonResponse !== null
+      ) {
+        const mappedResponse: Record<string, any> = {};
+        const map = matchedRoute.transformations.responseBodyMap;
+        for (const key in jsonResponse) {
+          const newKey = map[key] || key;
+          mappedResponse[newKey] = jsonResponse[key];
+        }
+        jsonResponse = mappedResponse;
+      }
+
+      return res.status(upstreamResponse.status).json(jsonResponse);
+    } else {
+      const textResponse = await upstreamResponse.text();
+
+      if (
+        pkg.quotaType === "token" &&
+        upstreamResponse.status >= 200 &&
+        upstreamResponse.status < 300
+      ) {
+        const inputWords = countWords(processedBody);
+        const outputWords = countWords(textResponse);
+        const tokens = Math.max(1, inputWords + outputWords);
+
+        db.incrementUsage(clientId, tokens);
+      }
+
+      return res
+        .status(upstreamResponse.status)
+        .set("Content-Type", contentType || "text/plain")
+        .send(textResponse);
+    }
+  } catch (error: any) {
+    console.error(`[Gateway] Upstream error untuk ${req.path}:`, error.message);
+
+    // Refund usage kalau request ke upstream gagal sebelum dapat respons
+    // (timeout, connection refused, DNS error). User tidak boleh kena
+    // charge untuk request yang gak nyampe ke upstream.
+    if (usageCharged) {
+      db.incrementUsage(clientId, -1);
+      usageCharged = false;
+    }
+
+    let statusCode = 502;
+    let message = "Upstream server error atau tidak dapat dijangkau.";
+
+    if (error.name === "AbortError" || error.name === "TimeoutError") {
+      statusCode = 504;
+      message = `Upstream server timeout setelah ${matchedRoute.timeout || 10000}ms.`;
+    } else if (error.code === "ECONNREFUSED") {
+      message = "Koneksi ke upstream server ditolak.";
+    } else if (error.code === "ENOTFOUND") {
+      message = "Domain upstream server tidak ditemukan.";
+    }
+
+    logRequest(statusCode, error.message);
+
+    return res.status(statusCode).json({
+      error: message,
+      gateway: "KroomBridge API Gateway",
+      route: matchedRoute.path,
+      upstream: matchedRoute.upstreamUrl,
+      details:
+        process.env.NODE_ENV !== "production" ? error.message : undefined,
+    });
+  }
+});
