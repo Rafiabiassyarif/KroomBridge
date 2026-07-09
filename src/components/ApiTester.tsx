@@ -133,6 +133,7 @@ export default function ApiTester() {
   const [responseTab, setResponseTab] = useState(
     () => localStorage.getItem("kroombridge_tester_responseTab") || "body",
   );
+  const [isPrettyPrint, setIsPrettyPrint] = useState(true);
 
   const [params, setParams] = useState<KeyValue[]>(() => {
     const saved = localStorage.getItem("kroombridge_tester_params");
@@ -715,9 +716,6 @@ export default function ApiTester() {
     }
   };
 
-  // Helper: pastikan ada bearer token valid sebelum Send. Kalau gak ada
-  // atau expired, fetch token baru pakai handleGenerateToken-equivalent.
-  // Return token yang akan dipakai (atau "" kalau gagal).
   const ensureValidBearerToken = async (): Promise<string> => {
     if (authType !== "bearer") return bearerToken;
     if (!isTokenExpiredOrEmpty(bearerToken)) return bearerToken;
@@ -859,7 +857,7 @@ export default function ApiTester() {
             setResponse((prev: any) => ({
               ...prev,
               data: streamData,
-              size: Buffer.byteLength(streamData, "utf8") + " B",
+              size: new Blob([streamData]).size + " B",
             }));
           }
         }
@@ -1037,20 +1035,21 @@ export default function ApiTester() {
           <button
             onClick={() => {
               setMethod("POST");
-              setUrl(`${window.location.origin}/gateway/ai/chat/completions`);
+              setUrl(`${window.location.origin}/gateway/kroma/v1/chat/completions`);
               setAuthType("bearer");
               setActiveTab("body");
               setBodyType("raw");
               setRawFormat("json");
-              setIsStreaming(true);
+              setIsStreaming(false);
               setBodyContent(JSON.stringify({
+                model: "openai/gpt-4o-mini",
                 messages: [
                   {
                     role: "user",
-                    content: "Halo! Siapa namamu?"
+                    content: "Halo, jawab singkat."
                   }
                 ],
-                stream: true
+                stream: false
               }, null, 2));
             }}
             className="px-3.5 py-2 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 hover:from-blue-500/35 hover:to-indigo-500/35 text-blue-700 dark:text-blue-300 border border-blue-200/40 dark:border-blue-800/40 text-xs font-black rounded-xl transition-all active:scale-95 flex items-center gap-1.5 shadow-sm"
@@ -1061,7 +1060,7 @@ export default function ApiTester() {
         </div>
       </div>
 
-      <PanelGroup autoSaveId="api-tester-panels" orientation="horizontal" className="flex-1 min-h-0 gap-6">
+      <PanelGroup id="api-tester-panels" autoSave="api-tester-panels" orientation="horizontal" className="flex-1 min-h-0 gap-6">
         <Panel defaultSize={50} minSize={30} className="flex flex-col space-y-4">
           <div className="flex space-x-2">
             <div className="flex-1 flex bg-white/95 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-[0_12px_40px_-28px_rgba(15,23,42,0.8)] focus-within:ring-2 ring-emerald-400/30 focus-within:border-emerald-400/60 transition-all">
@@ -1899,26 +1898,39 @@ export default function ApiTester() {
             </div>
           </div>
 
-          <div className="flex items-center border-b border-slate-800 bg-slate-950/60 text-sm font-bold text-slate-400 overflow-x-auto hidden-scrollbar shrink-0">
-            {["pretty", "raw", "preview", "headers", "cookies", "history"].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setResponseTab(tab)}
-                className={cn(
-                  "px-4 py-2.5 border-b-2 transition-colors shrink-0",
-                  (responseTab === tab || (tab === "pretty" && responseTab === "body"))
-                    ? "border-blue-500 text-blue-300"
-                    : "border-transparent hover:text-slate-200",
-                )}
-              >
-                {tab === "pretty" && "Pretty"}
-                {tab === "raw" && "Raw"}
-                {tab === "preview" && "Preview"}
-                {tab === "headers" && "Headers"}
-                {tab === "cookies" && "Cookies"}
-                {tab === "history" && "History"}
-              </button>
-            ))}
+          <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/60 pr-4">
+            <div className="flex items-center text-sm font-bold text-slate-400 overflow-x-auto hidden-scrollbar shrink-0">
+              {["body", "preview", "headers", "cookies", "history"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setResponseTab(tab)}
+                  className={cn(
+                    "px-4 py-2.5 border-b-2 transition-colors shrink-0",
+                    responseTab === tab
+                      ? "border-blue-500 text-blue-300"
+                      : "border-transparent hover:text-slate-200",
+                  )}
+                >
+                  {tab === "body" && "Body"}
+                  {tab === "preview" && "Preview"}
+                  {tab === "headers" && "Headers"}
+                  {tab === "cookies" && "Cookies"}
+                  {tab === "history" && "History"}
+                </button>
+              ))}
+            </div>
+            
+            {responseTab === "body" && (
+              <label className="flex items-center space-x-2 text-xs font-medium text-slate-400 hover:text-slate-200 cursor-pointer select-none">
+                <span>Pretty-print</span>
+                <input
+                  type="checkbox"
+                  checked={isPrettyPrint}
+                  onChange={(e) => setIsPrettyPrint(e.target.checked)}
+                  className="rounded border-slate-700 bg-slate-900/50 text-blue-500 focus:ring-blue-500/30"
+                />
+              </label>
+            )}
           </div>
 
           <div className="flex-1 p-4 overflow-y-auto font-mono text-[13px] leading-relaxed hidden-scrollbar">
@@ -1936,14 +1948,33 @@ export default function ApiTester() {
               </div>
             ) : response ? (
               <>
-                {(responseTab === "body" || responseTab === "pretty") && (() => {
-                  const hasError = response.status >= 400 || (response.data && response.data.error);
+                {responseTab === "body" && (() => {
+                  let parsedData = response.data;
+                  if (typeof parsedData === "string") {
+                    try {
+                      parsedData = JSON.parse(parsedData);
+                    } catch (e) {}
+                  }
+
+                  // Deteksi payload proxy error (karena fallback dari streaming yang gagal)
+                  const isProxyErrorPayload = parsedData && typeof parsedData === "object" && parsedData.status && parsedData.data && parsedData.data.error;
+                  const finalStatus = isProxyErrorPayload ? parsedData.status : response.status;
+                  const errObj = isProxyErrorPayload ? parsedData.data : parsedData;
+
+                  const hasError = finalStatus >= 400 || (errObj && errObj.error);
+
                   if (hasError) {
-                    const errObj = response.data;
-                    const errMsg = typeof errObj === "string" ? errObj : (errObj?.error || errObj?.message || "Unknown Error");
-                    const provider = errObj?.provider || errObj?.gateway || (response.status >= 500 ? "Server Error" : "Client Error");
-                    const hint = errObj?.hint;
-                    const details = errObj?.details || errObj?.upstream || errObj?.route;
+                    const rawErrMsg = typeof errObj === "string" ? errObj : (errObj?.error || errObj?.message || "Unknown Error");
+                    const errMsg = typeof rawErrMsg === "object" && rawErrMsg !== null ? JSON.stringify(rawErrMsg) : String(rawErrMsg);
+                    
+                    const rawProvider = errObj?.provider || errObj?.gateway || (finalStatus >= 500 ? "Server Error" : "Client Error");
+                    const provider = typeof rawProvider === "object" && rawProvider !== null ? JSON.stringify(rawProvider) : String(rawProvider);
+                    
+                    const rawHint = errObj?.hint;
+                    const hint = rawHint && typeof rawHint === "object" ? JSON.stringify(rawHint) : rawHint;
+                    
+                    const rawDetails = errObj?.details || errObj?.upstream || errObj?.route;
+                    const details = rawDetails && typeof rawDetails === "object" ? JSON.stringify(rawDetails) : rawDetails;
 
                     return (
                       <div className="space-y-4 font-sans text-sm">
@@ -1955,7 +1986,7 @@ export default function ApiTester() {
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-[10px] font-black uppercase tracking-wider text-rose-400 px-2 py-0.5 bg-rose-500/20 rounded-md border border-rose-500/30">
-                                  {response.status > 0 ? `HTTP ${response.status}` : "Connection Failure"}
+                                  {finalStatus > 0 ? `HTTP ${finalStatus}` : "Connection Failure"}
                                 </span>
                                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
                                   via {provider}
@@ -1994,7 +2025,12 @@ export default function ApiTester() {
                           </button>
                           {showRawError && (
                             <div className="p-4 border-t border-slate-800 bg-slate-950/80 max-h-80 overflow-y-auto hidden-scrollbar">
-                              <JsonTreeViewer data={response.data} />
+                              <pre
+                                className="font-mono text-[13.5px] leading-relaxed overflow-x-auto select-text text-slate-300"
+                                dangerouslySetInnerHTML={{
+                                  __html: highlightJson(parsedData),
+                                }}
+                              />
                             </div>
                           )}
                         </div>
@@ -2002,14 +2038,19 @@ export default function ApiTester() {
                     );
                   }
 
-                  return <JsonTreeViewer data={response.data} />;
+                  return isPrettyPrint ? (
+                    <pre
+                      className="font-mono text-[13.5px] leading-relaxed overflow-x-auto select-text text-slate-300"
+                      dangerouslySetInnerHTML={{
+                        __html: highlightJson(parsedData),
+                      }}
+                    />
+                  ) : (
+                    <pre className="font-mono text-[13px] leading-relaxed overflow-x-auto select-text text-slate-300 whitespace-pre-wrap break-all">
+                      {typeof response.data === "string" ? response.data : JSON.stringify(response.data)}
+                    </pre>
+                  );
                 })()}
-
-                {responseTab === "raw" && (
-                  <pre className="font-mono text-[13px] leading-relaxed overflow-x-auto select-text text-slate-300 whitespace-pre-wrap break-all">
-                    {typeof response.data === "string" ? response.data : JSON.stringify(response.data, null, 2)}
-                  </pre>
-                )}
 
                 {responseTab === "preview" && (
                   <iframe

@@ -1,6 +1,6 @@
 import { adminFetch } from "../lib/api";
 import React, { useState, useEffect } from "react";
-import { Network, Plus, Trash2, Edit2, Play, Combine } from "lucide-react";
+import { Network, Plus, Trash2, Edit2, Play, Combine, RefreshCw } from "lucide-react";
 import { motion } from "motion/react";
 import { useAutoRefresh } from "../lib/useAutoRefresh";
 import { useSSE } from "../lib/useSSE";
@@ -21,6 +21,7 @@ export default function RoutesView() {
   const [editingRoute, setEditingRoute] = useState<Route | null>(null);
   const [routeToDelete, setRouteToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -139,6 +140,24 @@ export default function RoutesView() {
     setShowModal(true);
   };
 
+  const handleSyncKroma = async () => {
+    try {
+      setIsSyncing(true);
+      const res = await adminFetch("/api/admin/sync-kroma", { method: "POST" });
+      if (res.ok) {
+        fetchRoutes();
+      } else {
+        const data = await res.json();
+        setError(data.error || "Gagal sinkronisasi dengan Kroma AI");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Terjadi kesalahan saat sinkronisasi Kroma AI");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const openEditModal = (r: any) => {
     setEditingRoute(r);
     setError(null);
@@ -169,13 +188,23 @@ export default function RoutesView() {
             developer.
           </p>
         </div>
-        <button
-          onClick={openNewModal}
-          className="flex items-center space-x-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95 text-sm font-bold"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Tambah Route Baru</span>
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleSyncKroma}
+            disabled={isSyncing}
+            className="flex items-center space-x-2 bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-xl transition-all shadow-lg shadow-indigo-500/20 active:scale-95 text-sm font-bold disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? "animate-spin" : ""}`} />
+            <span>{isSyncing ? "Syncing..." : "Sync Kroma AI"}</span>
+          </button>
+          <button
+            onClick={openNewModal}
+            className="flex items-center space-x-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95 text-sm font-bold"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Tambah Route Baru</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -315,6 +315,14 @@ paths:
         '200':
           description: OK
 
+  /api/admin/sync-kroma:
+    post:
+      tags: [Admin Routes]
+      summary: Sinkronisasi otomatis rute dari Kroma AI
+      responses:
+        '200':
+          description: Berhasil melakukan sinkronisasi
+
   /api/admin/routes/{id}:
     patch:
       tags: [Admin Routes]

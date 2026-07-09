@@ -246,6 +246,22 @@ adminRouter.get("/gpu/:hostId/history", (req: Request, res: Response) => {
 // CLIENTS — Manajemen Klien API
 // ============================================================
 
+import { syncUsersToClients } from "./userSync.js";
+
+// POST /api/admin/sync-users
+adminRouter.post("/sync-users", async (req: Request, res: Response) => {
+  const result = await syncUsersToClients();
+  if (result.success) {
+    broadcast({
+      type: "client:change",
+      data: { action: "sync", message: "Users synced to clients" },
+    });
+    res.json(result);
+  } else {
+    res.status(500).json(result);
+  }
+});
+
 // GET /api/admin/clients — List semua klien
 adminRouter.get("/clients", (req: Request, res: Response) => {
   const clients = db.getClients();
@@ -561,6 +577,22 @@ adminRouter.delete("/packages/:id", async (req: Request, res: Response) => {
 // ============================================================
 // ROUTES — Manajemen Route Gateway
 // ============================================================
+
+import { syncKromaRoutes } from "./kromaSync.js";
+
+// POST /api/admin/sync-kroma
+adminRouter.post("/sync-kroma", async (req: Request, res: Response) => {
+  const result = await syncKromaRoutes();
+  if (result.success) {
+    broadcast({
+      type: "route:change",
+      data: { action: "sync", message: "Kroma AI routes synced" },
+    });
+    res.json(result);
+  } else {
+    res.status(500).json(result);
+  }
+});
 
 // GET /api/admin/routes
 adminRouter.get("/routes", (req: Request, res: Response) => {
@@ -1024,6 +1056,23 @@ adminRouter.post("/system/reset-quotas", (req: Request, res: Response) => {
 adminRouter.get("/system/meta", (req: Request, res: Response) => {
   const meta = db.getMeta();
   res.json(meta);
+});
+
+// PATCH /api/admin/system/meta — Update konfigurasi meta sistem (termasuk API Key)
+adminRouter.patch("/system/meta", (req: Request, res: Response) => {
+  const { kromaApiKey, apiKeys } = req.body;
+  const updates: any = {};
+
+  if (kromaApiKey !== undefined) {
+    updates.kromaApiKey = kromaApiKey;
+  }
+  
+  if (apiKeys !== undefined) {
+    updates.apiKeys = apiKeys;
+  }
+
+  const updatedMeta = db.updateMeta(updates);
+  res.json({ success: true, meta: updatedMeta });
 });
 
 // PATCH /api/admin/system/reset-schedule — Simpan jadwal auto-reset kuota

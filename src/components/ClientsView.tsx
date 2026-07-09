@@ -38,6 +38,7 @@ export default function ClientsView() {
   const [clients, setClients] = useState<Client[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newClientName, setNewClientName] = useState("");
@@ -107,6 +108,27 @@ export default function ClientsView() {
       !clientToResetUsage,
     30, // 30 detik sebagai fallback saja
   );
+
+  const handleSyncUsers = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await adminFetch("/api/admin/sync-users", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Sync berhasil! Ditambahkan: ${data.addedCount}, Diperbarui: ${data.updatedCount}`);
+        fetchData();
+      } else {
+        alert(data.error || "Gagal sinkronisasi");
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert("Terjadi kesalahan: " + (e.message || String(e)));
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -259,13 +281,23 @@ export default function ClientsView() {
             Kelola aplikasi klien dan API key yang mengakses KroomBridge.
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="relative z-10 flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:-translate-y-0.5 transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Tambah Klien</span>
-        </button>
+        <div className="flex gap-3 relative z-10">
+          <button
+            onClick={handleSyncUsers}
+            disabled={isSyncing}
+            className="flex items-center space-x-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 hover:-translate-y-0.5 transition-all disabled:opacity-50 outline-none"
+          >
+            <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
+            <span>Sync Users</span>
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:-translate-y-0.5 transition-all outline-none"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Tambah Klien</span>
+          </button>
+        </div>
       </motion.div>
 
       <motion.div

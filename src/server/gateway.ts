@@ -181,14 +181,21 @@ export const gatewayMiddleware = (
 
       if (anomaly.count > 20) {
         console.warn(
-          `[ANOMALY] Klien ${clientId} membuat ${anomaly.count} permintaan dalam 1 detik!`,
+          `[ANOMALY] Klien ${clientId} (IP: ${ipStr}) membuat ${anomaly.count} permintaan dalam 1 detik. Memblokir IP otomatis...`,
         );
-        // Bisa diblokir otomatis, saat ini hanya log
+        
+        // Blokir IP otomatis
+        db.addToIpDenylist(ipStr, `Otomatis diblokir: Anomali Rate Limit (${anomaly.count} req/dtk) dari klien ${clientId}`);
+        broadcast("security:change");
+        
+        return res.status(403).json({
+          error: "Akses diblokir otomatis karena aktivitas anomali berlebih. IP Anda telah dimasukkan ke Denylist.",
+        });
       }
     }
 
     // ── 8. Cek Akses Endpoint (Permission) ──
-    const requestedPath = req.path;
+    const requestedPath = req.baseUrl + req.path;
     const hasAccess = pkg.allowedEndpoints.some(
       (ep) =>
         ep === "*" || requestedPath === ep || requestedPath.startsWith(ep),
@@ -251,13 +258,15 @@ gatewayRouter.use(async (req: Request, res: Response) => {
 
   const activeRoutes = db.getRoutes().filter((r) => r.isActive);
 
+  const fullPath = req.baseUrl + req.path;
+
   // Cari route yang cocok (paling spesifik diprioritaskan)
   const matchedRoute = activeRoutes
     .filter(
       (r) =>
-        req.path === r.path ||
-        req.path.startsWith(r.path + "/") ||
-        req.path.startsWith(r.path),
+        fullPath === r.path ||
+        fullPath.startsWith(r.path + "/") ||
+        fullPath.startsWith(r.path),
     )
     .sort((a, b) => b.path.length - a.path.length)[0];
 
@@ -269,7 +278,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       clientName: client?.name,
       routeId: matchedRoute?.id || "unknown",
       method: req.method,
-      path: req.path,
+      path: fullPath,
       statusCode,
       durationMs: Date.now() - startTime,
       ipAddress: clientIp,
@@ -289,7 +298,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     logRequest(404, "Route tidak ditemukan");
     return res.status(404).json({
       error: "Endpoint tidak ditemukan di API Gateway.",
-      requested: req.path,
+      requested: fullPath,
       availableRoutes: activeRoutes.map((r) => r.path),
     });
   }
@@ -333,7 +342,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
   try {
     // ── Bangun Target URL ──
     const routePathLen = matchedRoute.path.length;
-    const remainder = req.path.slice(routePathLen);
+    const remainder = fullPath.slice(routePathLen);
     const queryString =
       Object.keys(req.query).length > 0
         ? "?" + new URLSearchParams(req.query as any).toString()
@@ -392,7 +401,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     const fetchOptions: RequestInit = {
       method: req.method,
       headers: upstreamHeaders,
-      signal: AbortSignal.timeout(matchedRoute.timeout || 10000),
+      signal: AbortSignal.timeout(matchedRoute.timeout || 120000),
     };
 
     if (["POST", "PUT", "PATCH"].includes(req.method)) {
@@ -414,16 +423,29 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       usageCharged = false;
     }
 
-    const isStream = contentType.includes("event-stream") || processedBody?.stream === true;
+    // Only parse as stream if the upstream response is actually OK and is an event stream
+    const isStream = upstreamResponse.ok && contentType.includes("event-stream");
 
     if (isStream && upstreamResponse.body) {
-      res.setHeader("Content-Type", contentType || "text/event-stream");
-      res.setHeader("Cache-Control", "no-cache");
-      res.setHeader("Connection", "keep-alive");
+      // Automatically aggregate when stream is requested to return 1 neat JSON
+      const shouldAggregate = processedBody?.stream === true;
+
+      if (!shouldAggregate) {
+        res.setHeader("Content-Type", contentType || "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+      }
 
       const reader = upstreamResponse.body.getReader();
       const decoder = new TextDecoder();
       let fullText = "";
+
+      let aggregatedContent = "";
+      let aggregatedReasoning = "";
+      let lastParsedId = "chatcmpl-" + Date.now();
+      let lastParsedModel = "unknown";
+
+      let streamBuffer = "";
 
       try {
         while (true) {
@@ -431,12 +453,56 @@ gatewayRouter.use(async (req: Request, res: Response) => {
           if (done) break;
           const chunk = decoder.decode(value, { stream: true });
           fullText += chunk;
-          res.write(value);
+
+          if (shouldAggregate) {
+            streamBuffer += chunk;
+            // Parse SSE chunks to build the final text
+            const lines = streamBuffer.split('\n');
+            // Keep the last potentially incomplete line in the buffer
+            streamBuffer = lines.pop() || "";
+            
+            for (const line of lines) {
+              if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  if (data.id) lastParsedId = data.id;
+                  if (data.model) lastParsedModel = data.model;
+                  
+                  const delta = data.choices?.[0]?.delta;
+                  if (delta?.content) aggregatedContent += delta.content;
+                  if (delta?.reasoning_content) aggregatedReasoning += delta.reasoning_content;
+                } catch (e) {
+                  // ignore partial json chunks
+                }
+              }
+            }
+          } else {
+            res.write(value);
+          }
         }
       } catch (err) {
         console.error("[Gateway] Error reading stream:", err);
       } finally {
-        res.end();
+        if (shouldAggregate) {
+          res.json({
+            id: lastParsedId,
+            object: "chat.completion",
+            created: Math.floor(Date.now() / 1000),
+            model: lastParsedModel,
+            choices: [
+              {
+                index: 0,
+                message: {
+                  role: "assistant",
+                  content: aggregatedContent || ""
+                },
+                finish_reason: "stop"
+              }
+            ]
+          });
+        } else {
+          res.end();
+        }
       }
 
       if (

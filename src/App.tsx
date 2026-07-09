@@ -22,6 +22,7 @@ import {
   LogOut,
   Menu,
   X,
+  Key,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "./lib/utils";
@@ -31,6 +32,7 @@ import RoutesView from "./components/RoutesView";
 import DashboardView from "./components/DashboardView";
 import SecurityView from "./components/SecurityView";
 import SettingsView from "./components/SettingsView";
+import ApiKeyView from "./components/ApiKeyView";
 import ArchitectureView from "./components/ArchitectureView";
 import LoginView from "./components/LoginView";
 import ApiTester from "./components/ApiTester";
@@ -140,6 +142,7 @@ export default function App() {
     { id: "security", label: "Security", icon: ShieldCheck },
     { id: "tester", label: "API Tester", icon: TerminalSquare },
     { id: "architecture", label: "Architecture", icon: Layers },
+    { id: "apikeys", label: "API Keys", icon: Key },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
@@ -371,9 +374,10 @@ export default function App() {
               {activeTab === "clients" && <ClientsView />}
               {activeTab === "packages" && <PackagesView />}
               {activeTab === "routes" && <RoutesView />}
-              {activeTab === "security" && <SecurityView />}
-              {activeTab === "architecture" && <ArchitectureView />}
-              {activeTab === "settings" && <SettingsView />}
+              { activeTab === "security" && <SecurityView /> }
+              { activeTab === "architecture" && <ArchitectureView /> }
+              { activeTab === "apikeys" && <ApiKeyView /> }
+              { activeTab === "settings" && <SettingsView /> }
             </motion.div>
           </AnimatePresence>
 

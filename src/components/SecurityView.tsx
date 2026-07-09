@@ -81,7 +81,7 @@ export default function SecurityView() {
 
   // ─── Realtime SSE: reload saat ada perubahan keamanan ──────
   useSSE(
-    ["route:change", "client:change"],
+    ["route:change", "client:change", "security:change"],
     () => {
       fetchSecurity();
     },
@@ -413,10 +413,9 @@ export default function SecurityView() {
                       Status Enjin Deteksi
                     </h3>
                     <p className="font-medium text-emerald-700/80 dark:text-emerald-500/80 leading-relaxed text-sm">
-                      Mode "Pantau" (Monitor) sedang aktif. Aktivitas
-                      mencurigakan akan dicatat untuk analisis namun tidak akan
-                      diblokir secara mutlak otomatis demi menghindari
-                      false-positive.
+                      Mode "Blokir Otomatis" sedang aktif. Aktivitas
+                      mencurigakan akan dicatat dan IP pengirim akan 
+                      langsung dijebloskan ke daftar Denylist.
                     </p>
                   </div>
                 </div>

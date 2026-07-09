@@ -16,8 +16,104 @@ export const initMySQL = async () => {
 
   // ─── Schema migration ─────────────────────────────────────
   // Auto-add kolom baru untuk klien lama yang skema-nya belum punya.
-  // Aman untuk dipanggil tiap startup (idempotent via IF NOT EXISTS).
-  try {
+    // Table: admins
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS admins (
+        id varchar(50) NOT NULL PRIMARY KEY,
+        name varchar(100) NOT NULL,
+        email varchar(100) NOT NULL UNIQUE,
+        role varchar(50) NOT NULL DEFAULT 'Admin',
+        password varchar(255) NOT NULL,
+        createdAt varchar(50) DEFAULT NULL,
+        lastLogin varchar(50) DEFAULT NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    `);
+
+    // Table: packages
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS packages (
+        id varchar(50) NOT NULL PRIMARY KEY,
+        name varchar(100) NOT NULL,
+        description text,
+        monthlyQuota int NOT NULL DEFAULT '0',
+        maxRequestsPerMinute int NOT NULL DEFAULT '60',
+        quotaType varchar(50) NOT NULL DEFAULT 'request',
+        allowOverage tinyint(1) NOT NULL DEFAULT '0',
+        overageRatePer1K float NOT NULL DEFAULT '0',
+        allowedEndpoints json DEFAULT NULL,
+        price int DEFAULT NULL,
+        createdAt varchar(50) DEFAULT NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    `);
+
+    // Table: clients
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS clients (
+        id varchar(50) NOT NULL PRIMARY KEY,
+        name varchar(100) NOT NULL,
+        email varchar(100) DEFAULT NULL,
+        status varchar(50) NOT NULL DEFAULT 'active',
+        packageId varchar(50) NOT NULL,
+        secretKey varchar(255) NOT NULL,
+        keyVersion int NOT NULL DEFAULT '1',
+        usageThisMonth int NOT NULL DEFAULT '0',
+        isActive tinyint(1) NOT NULL DEFAULT '1',
+        quotaAlertSent tinyint(1) DEFAULT '0',
+        customQuota int DEFAULT NULL,
+        createdAt varchar(50) DEFAULT NULL,
+        lastSeen varchar(50) DEFAULT NULL,
+        lastReset varchar(50) DEFAULT NULL,
+        lastAnnualQuotaReset varchar(50) DEFAULT NULL,
+        tags json DEFAULT NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    `);
+
+    // Table: logs
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS logs (
+        id varchar(100) NOT NULL PRIMARY KEY,
+        timestamp varchar(50) NOT NULL,
+        clientId varchar(50) DEFAULT NULL,
+        clientName varchar(100) DEFAULT NULL,
+        routeId varchar(50) DEFAULT NULL,
+        method varchar(20) NOT NULL,
+        path varchar(500) NOT NULL,
+        statusCode int NOT NULL,
+        durationMs int NOT NULL DEFAULT '0',
+        ipAddress varchar(100) DEFAULT NULL,
+        userAgent text,
+        error text,
+        KEY idx_logs_clientId (clientId),
+        KEY idx_logs_routeId (routeId),
+        KEY idx_logs_timestamp (timestamp)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    `);
+
+    // Table: routes
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS routes (
+        id varchar(50) NOT NULL PRIMARY KEY,
+        name varchar(100) DEFAULT NULL,
+        path varchar(255) NOT NULL UNIQUE,
+        upstreamUrl varchar(500) NOT NULL,
+        description text,
+        isActive tinyint(1) NOT NULL DEFAULT '1',
+        method varchar(20) NOT NULL DEFAULT 'ALL',
+        timeout int DEFAULT NULL,
+        headers json DEFAULT NULL,
+        transformations json DEFAULT NULL,
+        createdAt varchar(50) DEFAULT NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    `);
+
+    // Table: settings
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS settings (
+        setting_key varchar(50) NOT NULL PRIMARY KEY,
+        setting_value json DEFAULT NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    `);
+
     await pool.query(
       "ALTER TABLE clients ADD COLUMN IF NOT EXISTS keyVersion INT NULL DEFAULT 1",
     );
@@ -200,6 +296,14 @@ export type UsageRecord = {
   errorCount: number;
 };
 
+export type ApiKey = {
+  id: string;
+  name: string;
+  key: string;
+  provider: string; // e.g., "kroma"
+  createdAt: string;
+};
+
 export type DatabaseSchema = {
   packages: Package[];
   clients: Client[];
@@ -215,6 +319,8 @@ export type DatabaseSchema = {
     quotaResetMonth?: number;
     quotaResetMode?: "monthly" | "purchase" | "annual";
     lastAnnualQuotaReset?: string;
+    kromaApiKey?: string;
+    apiKeys?: ApiKey[];
   };
 };
 
@@ -249,10 +355,12 @@ const defaultData: DatabaseSchema = {
     quotaResetMonth: 1,
     quotaResetMode: "monthly",
     lastAnnualQuotaReset: "",
+    kromaApiKey: "",
+    apiKeys: [],
   },
 };
 
-export class JSONDatabase {
+export class DatabaseCache {
   private data: DatabaseSchema;
 
   setData(newData: DatabaseSchema) {
@@ -669,4 +777,4 @@ export class JSONDatabase {
   }
 }
 
-export const db = new JSONDatabase();
+export const db = new DatabaseCache();

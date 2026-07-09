@@ -154,6 +154,12 @@ async function startServer() {
         if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
           return callback(null, true);
         }
+        
+        // Izinkan akses dari IP lokal / Tailscale
+        if (origin.match(/^https?:\/\/(localhost|127\.0\.0\.1|100\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:\d+)?$/)) {
+          return callback(null, true);
+        }
+
         callback(new Error(`CORS: Origin '${origin}' tidak diizinkan.`));
       },
       credentials: true,
