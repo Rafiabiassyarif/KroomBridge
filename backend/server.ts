@@ -522,7 +522,14 @@ async function startServer() {
   const distPath = path.join(__dirname, "..", "frontend", "dist");
   app.use(express.static(distPath));
   app.get("*", (req, res) => {
-    res.sendFile(path.join(distPath, "index.html"));
+    res.sendFile(path.join(distPath, "index.html"), (err) => {
+      if (err) {
+        res.status(404).json({
+          status: "API is running",
+          message: "KroomBridge Backend is active, but Frontend UI (dist) is not found. Did you forget to build the frontend?",
+        });
+      }
+    });
   });
 
   // ─── Global Error Handler ─────────────────────────────────
