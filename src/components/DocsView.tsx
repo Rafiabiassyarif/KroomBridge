@@ -33,13 +33,7 @@ const CodeSnippet = ({ code, language = "bash" }: { code: string; language?: str
 };
 
 export default function DocsView() {
-  const [baseUrl, setBaseUrl] = useState("http://localhost:3000");
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setBaseUrl(window.location.origin);
-    }
-  }, []);
+  const baseUrl = "https://kroombridge.kii.lat";
 
   const tokenRequestCode = `curl -X POST ${baseUrl}/api/auth/token \\
   -H "Content-Type: application/json" \\
@@ -169,11 +163,44 @@ print(response.choices[0].message.content)`;
             Gunakan <code>accessToken</code> dari langkah 2 untuk berinteraksi dengan AI. Struktur request dan respons KroomBridge dirancang <strong>100% kompatibel</strong> dengan API OpenAI, sehingga Anda bisa menggunakan pustaka bawaan <em>OpenAI SDK</em>.
           </p>
 
-          <p className="font-semibold text-slate-700 dark:text-slate-300 mt-6 mb-2">Menggunakan cURL (Terminal / Postman):</p>
-          <CodeSnippet code={chatRequestCode} language="bash" />
+          <div className="mt-8">
+            <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-3 text-[15px] flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              A. Melalui Terminal (cURL)
+            </h4>
+            <p className="text-[14px] text-slate-600 dark:text-slate-400 mb-2">Buka aplikasi Terminal (MacOS/Linux) atau Command Prompt/PowerShell (Windows), lalu jalankan perintah ini:</p>
+            <CodeSnippet code={chatRequestCode} language="bash" />
+          </div>
 
-          <p className="font-semibold text-slate-700 dark:text-slate-300 mt-8 mb-2">Menggunakan Python (OpenAI SDK):</p>
-          <CodeSnippet code={pythonSdkCode} language="python" />
+          <div className="mt-8">
+            <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-3 text-[15px] flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+              B. Melalui Postman
+            </h4>
+            <ol className="list-decimal pl-5 space-y-2 text-[14px] text-slate-700 dark:text-slate-300">
+              <li>Buka aplikasi Postman, buat Request baru lalu ubah method menjadi <strong>POST</strong>.</li>
+              <li>Masukkan URL: <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-sky-600 dark:text-sky-400">{baseUrl}/gateway/v1/chat/completions</code></li>
+              <li>Buka tab <strong>Headers</strong>, tambahkan Key: <code>Authorization</code> dengan Value: <code>Bearer &lt;TOKEN_JWT_ANDA&gt;</code>.</li>
+              <li>Buka tab <strong>Body</strong>, pilih opsi <strong>raw</strong> lalu ganti text menjadi <strong>JSON</strong>.</li>
+              <li>Paste JSON payload berikut ke dalamnya, lalu klik <strong>Send</strong>:</li>
+            </ol>
+            <CodeSnippet code={`{
+  "model": "pc-putih/lmstudio/qwen3.6-27b-uncensored-hauhaucs-aggressive",
+  "messages": [
+    { "role": "system", "content": "Anda adalah asisten AI yang cerdas." },
+    { "role": "user", "content": "Halo! Tolong buatkan saya pantun jenaka." }
+  ],
+  "stream": false
+}`} language="json" />
+          </div>
+
+          <div className="mt-8">
+            <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-3 text-[15px] flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+              C. Menggunakan Python (OpenAI SDK)
+            </h4>
+            <CodeSnippet code={pythonSdkCode} language="python" />
+          </div>
         </div>
 
         {/* Section 4: Integrasi di Aplikasi Pihak Ketiga */}
