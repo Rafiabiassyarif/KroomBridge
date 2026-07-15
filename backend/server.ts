@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { createServer as createViteServer } from "vite";
+
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -517,27 +517,13 @@ async function startServer() {
     });
   });
 
-  // ─── Vite Dev / Production Static ─────────────────────────
-  if (isDev) {
-    try {
-      const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: "spa",
-      });
-      app.use(vite.middlewares);
-    } catch (e) {
-      console.warn(
-        "[Vite] Gagal memuat dev server, melanjutkan tanpa Vite:",
-        e,
-      );
-    }
-  } else {
-    const distPath = path.join(__dirname, "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
+  // ─── Static Fallback ────────────────
+  // Backend akan melayani file UI statis dari folder /frontend/dist jika ada.
+  const distPath = path.join(__dirname, "..", "frontend", "dist");
+  app.use(express.static(distPath));
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(distPath, "index.html"));
+  });
 
   // ─── Global Error Handler ─────────────────────────────────
   app.use(

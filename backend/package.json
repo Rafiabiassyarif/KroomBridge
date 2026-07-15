@@ -1,0 +1,38 @@
+{
+  "name": "kroombridge-backend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "start": "tsx server.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^1.29.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.4.0",
+    "http-proxy-middleware": "^3.0.5",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.22.3",
+    "ssh2": "^1.17.0",
+    "swagger-ui-express": "^5.0.1",
+    "uuid": "^14.0.0",
+    "yamljs": "^0.3.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.14.0",
+    "@types/ssh2": "^1.15.5",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@types/uuid": "^10.0.0",
+    "@types/yamljs": "^0.2.34",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2"
+  }
+}
