@@ -11,7 +11,8 @@
     "start": "npm run build && npm run start --workspace=backend",
     "install:all": "npm install"
   },
-  "devDependencies": {
+  "dependencies": {
     "concurrently": "^10.0.3"
-  }
+  },
+  "devDependencies": {}
 }
