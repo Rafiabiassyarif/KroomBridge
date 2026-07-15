@@ -270,6 +270,41 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     )
     .sort((a, b) => b.path.length - a.path.length)[0];
 
+  // ── Calculate Model Multiplier ──
+  let modelMultiplier = 1.0;
+  
+  // Ambil nama model dari request body jika ada, kalau tidak fallback ke deskripsi route
+  const requestModel = req.body?.model;
+  const modelStringToParse = typeof requestModel === "string" ? requestModel : matchedRoute?.description;
+
+  if (modelStringToParse) {
+    const desc = modelStringToParse.toLowerCase();
+    if (desc.includes("claude")) {
+      if (desc.includes("opus")) modelMultiplier = 16.5;
+      else if (desc.includes("sonnet")) modelMultiplier = 3.5;
+      else if (desc.includes("haiku")) modelMultiplier = 0.5;
+      else modelMultiplier = 3.5;
+    } else if (desc.includes("gpt")) {
+      if (desc.includes("mini")) modelMultiplier = 0.3;
+      else if (desc.includes("4o")) modelMultiplier = 5.5;
+      else modelMultiplier = 5.5;
+    } else if (desc.includes("gemini")) {
+      if (desc.includes("flash")) modelMultiplier = 0.15;
+      else if (desc.includes("pro")) modelMultiplier = 1.5;
+      else modelMultiplier = 1.0;
+    } else if (desc.includes("qwen")) {
+      modelMultiplier = 0.9;
+    } else if (desc.includes("llama")) {
+      modelMultiplier = 0.75;
+    } else if (desc.includes("kimi") || desc.includes("moonshot") || desc.includes("minimax")) {
+      modelMultiplier = 1.5;
+    } else if (desc.includes("deepseek")) {
+      modelMultiplier = 1.2;
+    } else if (desc.includes("nemotron")) {
+      modelMultiplier = 1.0;
+    }
+  }
+
   const logRequest = (statusCode: number, error?: string) => {
     const client = db.getClient(clientId);
     const entry = {
@@ -356,6 +391,12 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       targetUrl = `${matchedRoute.upstreamUrl}${remainder}${queryString}`;
     }
 
+    const meta = db.getMeta();
+    const customUpstreamKey = req.headers["x-custom-upstream-key"] as string;
+    console.log("[GATEWAY] matchedRoute:", matchedRoute?.path, "customUpstreamKey:", customUpstreamKey);
+    const kromaApiKey = customUpstreamKey || meta.apiKeys?.find(k => k.provider === 'kroma')?.key || meta.kromaApiKey || process.env.KROMA_API_KEY;
+    const KROMA_API_URL = process.env.KROMA_API_URL || "https://kroma.kroombox.com";
+
     // ── Build Request Headers ──
     const upstreamHeaders: Record<string, string> = {
       "Content-Type": req.headers["content-type"] || "application/json",
@@ -365,6 +406,11 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       // Teruskan custom headers dari konfigurasi route
       ...(matchedRoute.headers || {}),
     };
+
+    if (matchedRoute.upstreamUrl.startsWith(KROMA_API_URL) && kromaApiKey) {
+      upstreamHeaders["Authorization"] = `Bearer ${kromaApiKey}`;
+      upstreamHeaders["x-api-key"] = kromaApiKey;
+    }
 
     // Jangan teruskan Authorization header dari klien ke upstream
     // (upstream punya auth tersendiri)
@@ -395,6 +441,73 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         ...processedBody,
         ...matchedRoute.transformations.requestBodyOverride,
       };
+    }
+
+    // ── Dynamic Token Limiting (Loss Prevention) ──
+    if (
+      pkg.quotaType === "token" &&
+      typeof processedBody === "object" &&
+      processedBody !== null
+    ) {
+      const client = db.getClient(clientId);
+      if (client) {
+        const activeQuota = client.customQuota ?? pkg.monthlyQuota;
+        const remainingQuota = activeQuota - client.usageThisMonth;
+
+        if (remainingQuota <= 0) {
+          logRequest(402, "Kuota token habis");
+          return res.status(402).json({
+            error: "Kuota token Anda telah habis. Silakan hubungi admin.",
+            details: { remaining_quota: remainingQuota }
+          });
+        }
+
+        // Estimasi token dari prompt menggunakan heuristik (jumlah kata * 1.5 + 20)
+        const inputWords = countWords(processedBody);
+        const estimatedPromptTokens = Math.max(1, Math.ceil(inputWords * 1.5) + 20);
+        const estimatedPromptTokensScaled = Math.ceil(estimatedPromptTokens * modelMultiplier);
+
+        if (estimatedPromptTokensScaled > remainingQuota) {
+          logRequest(402, "Prompt melebihi sisa kuota");
+          return res.status(402).json({
+            error: "Prompt terlalu besar untuk sisa kuota Anda.",
+            details: {
+              remaining_quota: remainingQuota,
+              estimated_prompt_cost: estimatedPromptTokensScaled,
+              model_multiplier: modelMultiplier,
+            },
+          });
+        }
+
+        // Hitung batas token untuk jawaban (completion)
+        const allowedCompletionTokensScaled = remainingQuota - estimatedPromptTokensScaled;
+        const allowedCompletionTokens = Math.floor(allowedCompletionTokensScaled / modelMultiplier);
+
+        if (allowedCompletionTokens < 10) {
+          logRequest(402, "Sisa kuota tidak cukup untuk respons");
+          return res.status(402).json({
+            error: "Sisa kuota Anda terlalu kecil untuk menghasilkan respons AI.",
+            details: {
+              remaining_quota: remainingQuota,
+              allowed_completion_tokens: allowedCompletionTokens,
+            },
+          });
+        }
+
+        // Paksa Kroma AI membatasi output agar sesuai sisa kuota pengguna
+        const userMaxTokens = processedBody.max_tokens || processedBody.max_completion_tokens || 999999;
+        processedBody.max_tokens = Math.min(userMaxTokens, allowedCompletionTokens);
+      }
+    }
+
+    // Memaksa upstream API untuk mengembalikan `usage` di akhir stream agar perhitungan token 100% akurat
+    if (
+      typeof processedBody === "object" &&
+      processedBody !== null &&
+      processedBody.stream === true &&
+      !processedBody.stream_options
+    ) {
+      processedBody.stream_options = { include_usage: true };
     }
 
     // ── Build Fetch Options ──
@@ -434,6 +547,9 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         res.setHeader("Content-Type", contentType || "text/event-stream");
         res.setHeader("Cache-Control", "no-cache");
         res.setHeader("Connection", "keep-alive");
+        if (pkg.quotaType === "token") {
+          res.setHeader("X-Token-Multiplier", String(modelMultiplier));
+        }
       }
 
       const reader = upstreamResponse.body.getReader();
@@ -510,9 +626,16 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         upstreamResponse.status >= 200 &&
         upstreamResponse.status < 300
       ) {
-        const inputWords = countWords(processedBody);
-        const outputWords = countWords(fullText);
-        const tokens = Math.max(1, inputWords + outputWords);
+        let baseTokens = 0;
+        const usageMatch = fullText.match(/"total_tokens":\s*(\d+)/);
+        if (usageMatch) {
+          baseTokens = parseInt(usageMatch[1], 10);
+        } else {
+          const inputWords = countWords(processedBody);
+          const outputWords = countWords(fullText);
+          baseTokens = Math.max(1, Math.ceil((inputWords + outputWords) * 1.5) + 20);
+        }
+        const tokens = Math.ceil(baseTokens * modelMultiplier);
         db.incrementUsage(clientId, tokens);
       }
       return;
@@ -529,11 +652,19 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         upstreamResponse.status >= 200 &&
         upstreamResponse.status < 300
       ) {
-        const inputWords = countWords(processedBody);
-        const outputWords = countWords(jsonResponse);
-        const tokens = Math.max(1, inputWords + outputWords);
+        let baseTokens = 0;
+        if (jsonResponse.usage?.total_tokens) {
+          baseTokens = jsonResponse.usage.total_tokens;
+        } else {
+          const inputWords = countWords(processedBody);
+          const outputWords = countWords(jsonResponse);
+          baseTokens = Math.max(1, Math.ceil((inputWords + outputWords) * 1.5) + 20);
+        }
+        const tokens = Math.ceil(baseTokens * modelMultiplier);
 
         db.incrementUsage(clientId, tokens);
+        res.setHeader("X-Token-Multiplier", String(modelMultiplier));
+        res.setHeader("X-Tokens-Charged", String(tokens));
       }
 
       // ── Transform Response Body ──
@@ -562,9 +693,12 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       ) {
         const inputWords = countWords(processedBody);
         const outputWords = countWords(textResponse);
-        const tokens = Math.max(1, inputWords + outputWords);
+        const baseTokens = Math.max(1, Math.ceil((inputWords + outputWords) * 1.5) + 20);
+        const tokens = Math.ceil(baseTokens * modelMultiplier);
 
         db.incrementUsage(clientId, tokens);
+        res.setHeader("X-Token-Multiplier", String(modelMultiplier));
+        res.setHeader("X-Tokens-Charged", String(tokens));
       }
 
       return res

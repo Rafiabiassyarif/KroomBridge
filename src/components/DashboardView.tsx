@@ -2153,7 +2153,7 @@ export default function DashboardView({
                   </div>
                   <p className="text-xs text-zinc-400 mt-1">
                     Analisis performa real-time, tingkat kegagalan (error rate),
-                    status kesehatan, dan total trafik seluruh upstream routes
+                    status kesehatan, dan total trafik seluruh Model API
                     aktif.
                   </p>
                 </div>

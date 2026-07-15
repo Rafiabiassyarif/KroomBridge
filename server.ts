@@ -268,6 +268,7 @@ async function startServer() {
   // ─── API Proxy for API Tester (Bypass CORS) ───────────────
   app.post("/api/proxy", async (req, res) => {
     const { method, url, headers, body, timeoutMs, followRedirects } = req.body;
+    console.log("[PROXY] Incoming Headers:", headers);
     let targetUrl = url;
     if (targetUrl.includes("//localhost")) {
       targetUrl = targetUrl.replace("//localhost", "//127.0.0.1");

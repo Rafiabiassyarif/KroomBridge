@@ -186,6 +186,9 @@ export default function ApiTester() {
   const [bearerToken, setBearerToken] = useState(
     () => localStorage.getItem("kroombridge_tester_bearerToken") || "",
   );
+  const [customUpstreamKey, setCustomUpstreamKey] = useState(
+    () => localStorage.getItem("kroombridge_tester_customUpstreamKey") || "",
+  );
   const [showRawError, setShowRawError] = useState(false);
 
   const [bodyType, setBodyType] = useState<
@@ -282,6 +285,7 @@ export default function ApiTester() {
     localStorage.setItem("kroombridge_tester_apiKeyValue", apiKeyValue);
     localStorage.setItem("kroombridge_tester_jwtToken", jwtToken);
     localStorage.setItem("kroombridge_tester_bearerToken", bearerToken);
+    localStorage.setItem("kroombridge_tester_customUpstreamKey", customUpstreamKey);
     localStorage.setItem("kroombridge_tester_bodyType", bodyType);
     localStorage.setItem("kroombridge_tester_rawFormat", rawFormat);
     localStorage.setItem("kroombridge_tester_bodyContent", bodyContent);
@@ -328,6 +332,7 @@ export default function ApiTester() {
     apiKeyValue,
     jwtToken,
     bearerToken,
+    customUpstreamKey,
     bodyType,
     rawFormat,
     bodyContent,
@@ -441,6 +446,10 @@ export default function ApiTester() {
 
     if (authType === "bearer" && bearerToken.trim()) {
       headerObj["Authorization"] = `Bearer ${bearerToken.trim()}`;
+    }
+
+    if (customUpstreamKey.trim()) {
+      headerObj["x-custom-upstream-key"] = customUpstreamKey.trim();
     }
 
     if (authType === "jwt" && jwtToken.trim()) {
@@ -1301,20 +1310,41 @@ export default function ApiTester() {
                         </label>
                         <div className="relative">
                           <input
-                            type="password"
+                            type="text"
                             value={bearerToken}
                             onChange={(e) => setBearerToken(e.target.value)}
                             placeholder="Masukkan Bearer Token"
-                            className="w-full px-4 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-white/80 dark:bg-slate-900 text-slate-700 dark:text-slate-200 font-mono text-sm focus:outline-none focus:ring-2 ring-emerald-300/40"
+                            className="w-full px-4 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-white/80 dark:bg-slate-900 text-slate-700 dark:text-slate-200 font-mono text-sm focus:outline-none focus:ring-2 ring-emerald-300/40 pr-10"
                           />
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500">
-                            <Key className="w-4 h-4" />
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(bearerToken);
+                            }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-600 transition-colors cursor-pointer"
+                            title="Copy Token"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
                       <p className="text-xs text-emerald-600/80">
                         Header Authorization dibuat otomatis.
                       </p>
+                      
+                      <div className="pt-2 mt-2 border-t border-emerald-100/30 space-y-1">
+                        <label className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
+                          Upstream Kroma API Key (Opsional)
+                        </label>
+                        <input
+                          type="password"
+                          value={customUpstreamKey}
+                          onChange={(e) => setCustomUpstreamKey(e.target.value)}
+                          placeholder="Override API Key Kroma..."
+                          className="w-full px-4 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-white/80 dark:bg-slate-900 text-slate-700 dark:text-slate-200 font-mono text-sm focus:outline-none focus:ring-2 ring-emerald-300/40"
+                        />
+                        <p className="text-[10px] text-emerald-600/80">Jika diisi, akan mengabaikan API Key dari Settings dan langsung meneruskannya ke Kroma AI.</p>
+                      </div>
                     </div>
                   )}
 

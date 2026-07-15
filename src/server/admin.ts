@@ -94,6 +94,43 @@ adminRouter.get("/dashboard-stats", (req: Request, res: Response) => {
 });
 
 // ============================================================
+// PROVIDERS LIST (KROMA AI LIVE SYNC)
+// GET /api/admin/providers
+// ============================================================
+adminRouter.get("/providers", async (req: Request, res: Response) => {
+  try {
+    const meta = db.getMeta();
+    const customKey = req.query.customKey as string;
+    const apiKey = customKey || meta.apiKeys?.find(k => k.provider === 'kroma')?.key || meta.kromaApiKey || process.env.KROMA_API_KEY;
+    const KROMA_API_URL = process.env.KROMA_API_URL || "https://kroma.kroombox.com";
+    
+    if (!apiKey) {
+      return res.status(400).json({ error: "Kroma API Key belum dikonfigurasi di Settings." });
+    }
+
+    // Mengambil data provider dan model secara live dari Kroma AI
+    const kromaRes = await fetch(`${KROMA_API_URL}/v1/providers`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "x-api-key": apiKey
+      }
+    });
+
+    if (!kromaRes.ok) {
+      throw new Error(`Kroma API merespons dengan status: ${kromaRes.status}`);
+    }
+
+    const data = await kromaRes.json();
+    res.json(data);
+  } catch (error: any) {
+    console.error("[Admin API] Error fetching live Kroma providers:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================
 // TIME-SERIES — Aggregasi log untuk chart sesuai rentang waktu
 // GET /api/admin/timeseries?range=5m|1h|24h|7d|30d|1y
 // Query param tambahan: ?path=/wa  (filter per endpoint)

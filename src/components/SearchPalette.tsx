@@ -17,6 +17,8 @@ import {
   User,
   Globe,
   Box,
+  Cpu,
+  Sparkles,
 } from "lucide-react";
 import { adminFetch } from "../lib/api";
 import { cn } from "../lib/utils";
@@ -40,7 +42,8 @@ const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, description: "Overview & statistics" },
   { id: "clients", label: "Clients & Access", icon: Users, description: "Manage API clients" },
   { id: "packages", label: "API Packages", icon: PackageIcon, description: "Manage packages & rate limits" },
-  { id: "routes", label: "Upstream Routes", icon: Combine, description: "Configure route proxying" },
+  { id: "routes", label: "Model API", icon: Cpu, description: "Configure model integrations" },
+  { id: "models", label: "Model AI", icon: Sparkles, description: "View Kroma AI budget estimator & model catalog" },
   { id: "security", label: "Security", icon: ShieldCheck, description: "IP filtering & security rules" },
   { id: "tester", label: "API Tester", icon: TerminalSquare, description: "Test API endpoints" },
   { id: "architecture", label: "Architecture", icon: Layers, description: "System architecture overview" },

@@ -90,7 +90,7 @@ export default function LoginView({ onLogin }: LoginViewProps) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/50 rounded-xl focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 dark:focus:border-violet-500 transition-all outline-none text-sm text-zinc-700 dark:text-zinc-200 placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
-                    placeholder="admin@kroombridge.io"
+                    placeholder="admin@kroombox.id"
                   />
                 </div>
               </div>

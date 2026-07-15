@@ -114,10 +114,11 @@ export const initMySQL = async () => {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
     `);
 
-    await pool.query(
-      "ALTER TABLE clients ADD COLUMN IF NOT EXISTS keyVersion INT NULL DEFAULT 1",
-    );
-  } catch (err: any) {
+    try {
+      await pool.query(
+        "ALTER TABLE clients ADD COLUMN IF NOT EXISTS keyVersion INT NULL DEFAULT 1",
+      );
+    } catch (err: any) {
     // MySQL versi lama (< 8.0) tidak support IF NOT EXISTS di ALTER TABLE.
     // Fallback: cek information_schema dulu.
     if (

@@ -19,6 +19,8 @@ import {
   Moon,
   Sun,
   Combine,
+  Cpu,
+  Sparkles,
   LogOut,
   Menu,
   X,
@@ -37,6 +39,7 @@ import ArchitectureView from "./components/ArchitectureView";
 import LoginView from "./components/LoginView";
 import ApiTester from "./components/ApiTester";
 import SearchPalette from "./components/SearchPalette";
+import ModelsView from "./components/ModelsView";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -138,7 +141,8 @@ export default function App() {
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "clients", label: "Clients & Access", icon: Users },
     { id: "packages", label: "API Packages", icon: PackageIcon },
-    { id: "routes", label: "Upstream Routes", icon: Combine },
+    { id: "routes", label: "Model API", icon: Cpu },
+    { id: "models", label: "Model AI", icon: Sparkles },
     { id: "security", label: "Security", icon: ShieldCheck },
     { id: "tester", label: "API Tester", icon: TerminalSquare },
     { id: "architecture", label: "Architecture", icon: Layers },
@@ -374,6 +378,7 @@ export default function App() {
               {activeTab === "clients" && <ClientsView />}
               {activeTab === "packages" && <PackagesView />}
               {activeTab === "routes" && <RoutesView />}
+              {activeTab === "models" && <ModelsView />}
               { activeTab === "security" && <SecurityView /> }
               { activeTab === "architecture" && <ArchitectureView /> }
               { activeTab === "apikeys" && <ApiKeyView /> }
