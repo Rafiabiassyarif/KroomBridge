@@ -40,7 +40,7 @@ export default function PackagesView() {
     name: "",
     maxRequestsPerMinute: 60,
     monthlyQuota: 10000,
-    quotaType: "request",
+    quotaType: "token",
     allowOverage: false,
     overageRatePer1K: 0,
     allowedEndpoints: ["*"],
@@ -131,7 +131,7 @@ export default function PackagesView() {
       name: "",
       maxRequestsPerMinute: 60,
       monthlyQuota: 10000,
-      quotaType: "request",
+      quotaType: "token",
       allowOverage: false,
       overageRatePer1K: 0,
       allowedEndpoints: ["*"],
@@ -271,7 +271,7 @@ export default function PackagesView() {
                   <span className="font-extrabold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700">
                     {pkg.monthlyQuota.toLocaleString()}{" "}
                     <span className="text-slate-500 dark:text-slate-400 font-medium text-xs">
-                      {pkg.quotaType === "token" ? "tokens" : "res"}
+                      tokens
                     </span>
                   </span>
                 </div>
@@ -283,7 +283,7 @@ export default function PackagesView() {
                     <span className="font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1 rounded-lg border border-emerald-100/50 dark:border-emerald-800/50 shadow-sm">
                       ${pkg.overageRatePer1K}{" "}
                       <span className="text-emerald-700/60 dark:text-emerald-400/60 font-medium text-xs">
-                        / 1k {pkg.quotaType === "token" ? "tokens" : "res"}
+                        / 1k tokens
                       </span>
                     </span>
                   ) : (
@@ -375,25 +375,7 @@ export default function PackagesView() {
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                      Jenis Kuota
-                    </label>
-                    <select
-                      required
-                      className="w-full border-slate-200 dark:border-slate-700 rounded-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 px-4 py-3 border bg-slate-50/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors outline-none dark:text-white"
-                      value={formData.quotaType || "request"}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          quotaType: e.target.value as "token" | "request",
-                        })
-                      }
-                    >
-                      <option value="request">Request (API Call)</option>
-                      <option value="token">Token (AI Model)</option>
-                    </select>
-                  </div>
+
                   <div>
                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                       Rate Limit (req/mnt)

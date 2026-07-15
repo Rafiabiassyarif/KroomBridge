@@ -157,6 +157,7 @@ export const initMySQL = async () => {
         ? JSON.parse(p.allowedEndpoints)
         : p.allowedEndpoints,
     allowOverage: !!p.allowOverage,
+    quotaType: "token", // Paksa selalu token
   }));
   const formattedClients = (clients as any[]).map((c) => ({
     ...c,
@@ -205,7 +206,7 @@ export type Package = {
   name: string;
   maxRequestsPerMinute: number;
   monthlyQuota: number;
-  quotaType?: "token" | "request";
+  quotaType?: "token";
   allowOverage: boolean;
   overageRatePer1K: number;
   allowedEndpoints: string[];

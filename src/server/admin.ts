@@ -104,18 +104,19 @@ adminRouter.get("/providers", async (req: Request, res: Response) => {
     const apiKey = customKey || meta.apiKeys?.find(k => k.provider === 'kroma')?.key || meta.kromaApiKey || process.env.KROMA_API_KEY;
     const KROMA_API_URL = process.env.KROMA_API_URL || "https://kroma.kroombox.com";
     
-    if (!apiKey) {
-      return res.status(400).json({ error: "Kroma API Key belum dikonfigurasi di Settings." });
+    const headers: any = {
+      "Content-Type": "application/json"
+    };
+
+    if (apiKey) {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+      headers["x-api-key"] = apiKey;
     }
 
     // Mengambil data provider dan model secara live dari Kroma AI
-    const kromaRes = await fetch(`${KROMA_API_URL}/v1/providers`, {
+    const kromaRes = await fetch(`${KROMA_API_URL}/v1/providers/`, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-        "x-api-key": apiKey
-      }
+      headers
     });
 
     if (!kromaRes.ok) {
@@ -516,7 +517,6 @@ adminRouter.post("/packages", (req: Request, res: Response) => {
     name,
     maxRequestsPerMinute,
     monthlyQuota,
-    quotaType,
     allowOverage,
     overageRatePer1K,
     allowedEndpoints,
@@ -539,7 +539,7 @@ adminRouter.post("/packages", (req: Request, res: Response) => {
     name,
     maxRequestsPerMinute: parseInt(String(maxRequestsPerMinute)),
     monthlyQuota: parseInt(String(monthlyQuota)),
-    quotaType: quotaType || "request",
+    quotaType: "token",
     allowOverage: !!allowOverage,
     overageRatePer1K: parseFloat(String(overageRatePer1K || 0)),
     allowedEndpoints: allowedEndpoints || ["*"],
@@ -571,6 +571,7 @@ adminRouter.patch("/packages/:id", (req: Request, res: Response) => {
   if (updates.overageRatePer1K)
     updates.overageRatePer1K = parseFloat(String(updates.overageRatePer1K));
   if (updates.price) updates.price = parseInt(String(updates.price));
+  updates.quotaType = "token"; // Paksa selalu token
 
   const updated = db.updatePackage(pkg.id, updates);
   broadcast({

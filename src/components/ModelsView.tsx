@@ -2,10 +2,6 @@ import React, { useState, useEffect } from "react";
 import { adminFetch } from "../lib/api";
 import { motion } from "motion/react";
 import {
-  Calculator,
-  Zap,
-  Image as ImageIcon,
-  Video,
   Sparkles,
   Info,
   RefreshCw,
@@ -23,25 +19,29 @@ const CHAT_MODELS = [
 ];
 
 export default function ModelsView() {
-  const [budget, setBudget] = useState<number>(1000);
-  const [selectedModelIdx, setSelectedModelIdx] = useState<number>(0);
   const [activeModels, setActiveModels] = useState(CHAT_MODELS);
   const [isLoading, setIsLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState<"idle" | "success" | "error">("idle");
-  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [errorMsg, setErrorMsg] = useState<string>("");
 
   const fetchKromaModels = async () => {
     setIsLoading(true);
     setSyncStatus("idle");
     try {
-      const url = apiKeyInput.trim() 
-        ? `/api/admin/providers?customKey=${encodeURIComponent(apiKeyInput.trim())}`
-        : `/api/admin/providers`;
+      const url = `/api/admin/providers`;
       const res = await adminFetch(url);
       if (!res.ok) {
-        setIsLoading(false);
+        let msg = "Gagal mengambil data dari server.";
+        try {
+          const errData = await res.json();
+          if (errData.error) msg = errData.error;
+        } catch(e) {}
+        
+        console.error("Sync Kroma Error:", msg);
+        setErrorMsg(msg);
+        setActiveModels([]);
         setSyncStatus("error");
-        setTimeout(() => setSyncStatus("idle"), 3000);
+        setTimeout(() => setSyncStatus("idle"), 5000);
         return;
       }
       const responseData = await res.json();
@@ -91,14 +91,15 @@ export default function ModelsView() {
 
       if (allModels.length > 0) {
         setActiveModels(allModels);
-        setSelectedModelIdx(0);
         setSyncStatus("success");
       } else {
-        setActiveModels([]);
-        setSyncStatus("error");
+        setActiveModels(CHAT_MODELS);
+        setSyncStatus("idle");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Gagal mengambil Kroma models untuk pricing:", err);
+      setErrorMsg(err.message || "Terjadi kesalahan jaringan.");
+      setActiveModels([]);
       setSyncStatus("error");
     } finally {
       setIsLoading(false);
@@ -109,20 +110,6 @@ export default function ModelsView() {
   useEffect(() => {
     fetchKromaModels();
   }, []);
-
-  // Estimasi dinamis berdasarkan model yang dipilih
-  const currentModelPrice = parseFloat(activeModels[selectedModelIdx]?.price.replace("$", "") || "4");
-  const textTokens = (budget / currentModelPrice) * 1_000_000;
-
-  const imageGens = budget / 0.02;
-  const videoSecs = budget / 0.1;
-
-  const formatNumber = (num: number) => {
-    if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1) + "B";
-    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + "M";
-    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
-    return Math.floor(num).toLocaleString();
-  };
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-10">
@@ -138,136 +125,14 @@ export default function ModelsView() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-50 dark:from-blue-900/30 to-sky-50 dark:from-sky-900/30 flex items-center justify-center shadow-sm border border-blue-100/50 dark:border-blue-800/50">
               <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
-            Kroma AI Catalog & Budget Estimator
+            Kroma AI Catalog
           </h2>
           <p className="text-slate-500 dark:text-slate-400 text-sm ml-1 font-medium max-w-2xl">
-            Atur slider untuk melihat sejauh mana budget bulanan Anda bisa digunakan untuk inferensi menggunakan berbagai model dari Kroma AI.
+            Daftar model Kroma AI yang tersedia dan tersinkronisasi di gateway Anda beserta estimasi harga per token.
           </p>
         </div>
       </motion.div>
 
-      {/* Estimator Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-white dark:bg-[#151921] border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm"
-      >
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-3">
-            <Calculator className="w-5 h-5 text-slate-400" />
-            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">
-              Monthly Budget
-            </h3>
-          </div>
-          <div className="text-2xl font-black text-slate-800 dark:text-white">
-            ${budget.toLocaleString()} <span className="text-sm font-bold text-slate-400">/ mo</span>
-          </div>
-        </div>
-
-        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mb-8">
-          Gunakan satu slider ini untuk membandingkan kapasitas Teks, Gambar, dan Video secara langsung.
-        </p>
-
-        <div className="mb-12 relative px-2">
-          <input
-            type="range"
-            min="10"
-            max="5000"
-            step="10"
-            value={budget}
-            onChange={(e) => setBudget(Number(e.target.value))}
-            className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 transition-all"
-          />
-          <div className="flex justify-between text-xs font-bold text-slate-400 mt-3 px-1">
-            <span>$10</span>
-            <span>$5,000+</span>
-          </div>
-        </div>
-
-        {/* Capacity Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Text Card */}
-          <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-6 relative overflow-hidden group hover:border-sky-300 dark:hover:border-sky-700 transition-colors">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2 text-sky-600 dark:text-sky-400 font-bold text-sm uppercase tracking-wider">
-                <Zap className="w-4 h-4" />
-                <span>TEXT</span>
-              </div>
-            </div>
-            <div className="flex items-baseline space-x-2 min-w-0">
-              <span className="text-3xl xl:text-4xl font-black tracking-tight text-slate-800 dark:text-white truncate">
-                ~{formatNumber(textTokens)}
-              </span>
-              <div className="text-xs font-bold text-slate-500 shrink-0">
-                Tokens
-              </div>
-            </div>
-            <div className="mt-4 relative">
-              <select
-                value={selectedModelIdx}
-                onChange={(e) => setSelectedModelIdx(Number(e.target.value))}
-                className="w-full appearance-none px-3 py-1.5 pr-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-300 outline-none cursor-pointer hover:border-sky-500/50 transition-colors truncate"
-              >
-                {activeModels.map((m, i) => (
-                  <option key={i} value={i}>
-                    {m.name} ({m.price})
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-2.5 flex items-center pointer-events-none">
-                <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"></path></svg>
-              </div>
-            </div>
-          </div>
-
-          {/* Image Card */}
-          <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-6 relative overflow-hidden group hover:border-purple-300 dark:hover:border-purple-700 transition-colors">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2 text-purple-600 dark:text-purple-400 font-bold text-sm uppercase tracking-wider">
-                <ImageIcon className="w-4 h-4" />
-                <span>IMAGE</span>
-              </div>
-            </div>
-            <div className="flex items-baseline space-x-2 min-w-0">
-              <span className="text-3xl xl:text-4xl font-black tracking-tight text-slate-800 dark:text-white truncate">
-                ~{formatNumber(imageGens)}
-              </span>
-              <div className="text-xs font-bold text-slate-500 shrink-0">
-                Images
-              </div>
-            </div>
-            <div className="mt-4">
-              <span className="inline-block px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold text-slate-500 dark:text-slate-300">
-                Standard resolution
-              </span>
-            </div>
-          </div>
-
-          {/* Video Card */}
-          <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-6 relative overflow-hidden group hover:border-amber-300 dark:hover:border-amber-700 transition-colors">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400 font-bold text-sm uppercase tracking-wider">
-                <Video className="w-4 h-4" />
-                <span>VIDEO</span>
-              </div>
-            </div>
-            <div className="flex items-baseline space-x-2 min-w-0">
-              <span className="text-3xl xl:text-4xl font-black tracking-tight text-slate-800 dark:text-white truncate">
-                ~{formatNumber(videoSecs)}
-              </span>
-              <div className="text-xs font-bold text-slate-500 shrink-0">
-                Seconds
-              </div>
-            </div>
-            <div className="mt-4">
-              <span className="inline-block px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold text-slate-500 dark:text-slate-300">
-                HD generation
-              </span>
-            </div>
-          </div>
-        </div>
-      </motion.div>
 
       {/* Pricing Table Section */}
       <motion.div
@@ -303,16 +168,6 @@ export default function ModelsView() {
             </p>
           </div>
           <div className="flex items-center space-x-3">
-            <div className="relative hidden sm:block">
-              <Key className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="password"
-                placeholder="Custom Kroma API Key..."
-                value={apiKeyInput}
-                onChange={(e) => setApiKeyInput(e.target.value)}
-                className="pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-48 lg:w-64 transition-all"
-              />
-            </div>
             <button
               onClick={fetchKromaModels}
               disabled={isLoading || syncStatus === "success"}
@@ -339,14 +194,11 @@ export default function ModelsView() {
                 <tr>
                   <th className="px-6 py-4">Model</th>
                   <th className="px-6 py-4">Unit Price</th>
-                  <th className="px-6 py-4">Est. Capacity</th>
                   <th className="px-6 py-4 text-right">Provider</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/30">
                 {activeModels.map((model, idx) => {
-                  const rowPrice = parseFloat(model.price.replace("$", "")) || 4;
-                  const rowTokens = (budget / rowPrice) * 1_000_000;
                   return (
                   <tr
                     key={idx}
@@ -364,12 +216,6 @@ export default function ModelsView() {
                         <span className="text-xs text-slate-500 dark:text-slate-500 font-medium">/ {model.unit}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="font-black text-sky-600 dark:text-sky-400">
-                        ~{formatNumber(rowTokens)}
-                      </span>
-                      <span className="text-xs font-bold text-slate-400 ml-1">Tokens</span>
-                    </td>
                     <td className="px-6 py-4 text-right">
                       <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700/50">
                         {model.provider}
@@ -379,8 +225,8 @@ export default function ModelsView() {
                 )})}
                 {activeModels.length === 0 && !isLoading && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-10 text-center text-slate-500 dark:text-slate-400 text-sm font-medium">
-                      Gagal mendapatkan daftar model. Pastikan Kroma API Key sudah dikonfigurasi di Settings atau coba klik tombol Sync Models.
+                    <td colSpan={3} className="px-6 py-10 text-center text-slate-500 dark:text-slate-400 text-sm font-medium">
+                      {errorMsg || "Gagal mendapatkan daftar model. Pastikan server Kroma AI Anda menyala dan terhubung."}
                     </td>
                   </tr>
                 )}
@@ -389,7 +235,7 @@ export default function ModelsView() {
           </div>
           <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-500 dark:text-slate-400 flex items-start space-x-2">
             <Info className="w-4 h-4 shrink-0 mt-0.5 text-slate-400" />
-            <p>Harga di atas merupakan estimasi harga markup berdasarkan nama model untuk simulasi perhitungan token.</p>
+            <p>Daftar harga di atas merupakan estimasi harga per token berdasarkan nama model AI.</p>
           </div>
         </div>
       </motion.div>

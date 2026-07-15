@@ -349,15 +349,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
   }
 
   // ── Increment Usage ──
-  // Jika kuota request biasa, hitung 1 di awal — TAPI kalau upstream
-  // balikin error 5xx (Bad Gateway/timeout/upstream down), kita refund
-  // di akhir (logic di catch block + di branch 5xx response).
-  // Jika tipe token, hanya dihitung kalau response sukses 2xx.
-  let usageCharged = false;
-  if (pkg.quotaType !== "token") {
-    db.incrementUsage(clientId, 1);
-    usageCharged = true;
-  }
+  // Hanya dihitung kalau response sukses 2xx.
 
   // ── Upstream Validation Shield ──
   const security = db.getSecurity();
@@ -445,7 +437,6 @@ gatewayRouter.use(async (req: Request, res: Response) => {
 
     // ── Dynamic Token Limiting (Loss Prevention) ──
     if (
-      pkg.quotaType === "token" &&
       typeof processedBody === "object" &&
       processedBody !== null
     ) {
@@ -454,7 +445,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         const activeQuota = client.customQuota ?? pkg.monthlyQuota;
         const remainingQuota = activeQuota - client.usageThisMonth;
 
-        if (remainingQuota <= 0) {
+        if (!pkg.allowOverage && remainingQuota <= 0) {
           logRequest(402, "Kuota token habis");
           return res.status(402).json({
             error: "Kuota token Anda telah habis. Silakan hubungi admin.",
@@ -467,7 +458,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         const estimatedPromptTokens = Math.max(1, Math.ceil(inputWords * 1.5) + 20);
         const estimatedPromptTokensScaled = Math.ceil(estimatedPromptTokens * modelMultiplier);
 
-        if (estimatedPromptTokensScaled > remainingQuota) {
+        if (!pkg.allowOverage && estimatedPromptTokensScaled > remainingQuota) {
           logRequest(402, "Prompt melebihi sisa kuota");
           return res.status(402).json({
             error: "Prompt terlalu besar untuk sisa kuota Anda.",
@@ -483,20 +474,30 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         const allowedCompletionTokensScaled = remainingQuota - estimatedPromptTokensScaled;
         const allowedCompletionTokens = Math.floor(allowedCompletionTokensScaled / modelMultiplier);
 
-        if (allowedCompletionTokens < 10) {
-          logRequest(402, "Sisa kuota tidak cukup untuk respons");
-          return res.status(402).json({
-            error: "Sisa kuota Anda terlalu kecil untuk menghasilkan respons AI.",
-            details: {
-              remaining_quota: remainingQuota,
-              allowed_completion_tokens: allowedCompletionTokens,
-            },
-          });
-        }
+        res.setHeader("X-Debug-Remaining-Quota", String(remainingQuota));
+        res.setHeader("X-Debug-Prompt-Cost", String(estimatedPromptTokensScaled));
+        res.setHeader("X-Debug-Allowed-Tokens", String(allowedCompletionTokens));
+        res.setHeader("X-Debug-Model-Multiplier", String(modelMultiplier));
+        res.setHeader("X-Debug-Allow-Overage", String(pkg.allowOverage));
 
-        // Paksa Kroma AI membatasi output agar sesuai sisa kuota pengguna
-        const userMaxTokens = processedBody.max_tokens || processedBody.max_completion_tokens || 999999;
-        processedBody.max_tokens = Math.min(userMaxTokens, allowedCompletionTokens);
+        if (!pkg.allowOverage) {
+          if (allowedCompletionTokens < 10) {
+            logRequest(402, "Sisa kuota tidak cukup untuk respons");
+            return res.status(402).json({
+              error: "Sisa kuota Anda terlalu kecil untuk menghasilkan respons AI.",
+              details: {
+                remaining_quota: remainingQuota,
+                estimated_prompt_cost: estimatedPromptTokensScaled,
+                allowed_completion_tokens: allowedCompletionTokens,
+              },
+            });
+          }
+
+          // Paksa Kroma AI membatasi output agar sesuai sisa kuota pengguna
+          const userMaxTokens = processedBody.max_tokens || processedBody.max_completion_tokens || 999999;
+          processedBody.max_tokens = Math.min(userMaxTokens, allowedCompletionTokens);
+          req.body = processedBody;
+        }
       }
     }
 
@@ -531,10 +532,6 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     // atau kalau response itu sebenarnya halaman error CDN/Cloudflare.
     // User TIDAK PERLU bayar token untuk request yang gak sukses.
     const isUpstreamError = upstreamResponse.status >= 500;
-    if (isUpstreamError && usageCharged) {
-      db.incrementUsage(clientId, -1);
-      usageCharged = false;
-    }
 
     // Only parse as stream if the upstream response is actually OK and is an event stream
     const isStream = upstreamResponse.ok && contentType.includes("event-stream");
@@ -547,9 +544,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         res.setHeader("Content-Type", contentType || "text/event-stream");
         res.setHeader("Cache-Control", "no-cache");
         res.setHeader("Connection", "keep-alive");
-        if (pkg.quotaType === "token") {
-          res.setHeader("X-Token-Multiplier", String(modelMultiplier));
-        }
+        res.setHeader("X-Token-Multiplier", String(modelMultiplier));
       }
 
       const reader = upstreamResponse.body.getReader();
@@ -648,7 +643,6 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       // SKIP kalau response error (5xx) — user tidak boleh kena charge
       // untuk upstream yang gagal/timeout.
       if (
-        pkg.quotaType === "token" &&
         upstreamResponse.status >= 200 &&
         upstreamResponse.status < 300
       ) {
@@ -687,7 +681,6 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       const textResponse = await upstreamResponse.text();
 
       if (
-        pkg.quotaType === "token" &&
         upstreamResponse.status >= 200 &&
         upstreamResponse.status < 300
       ) {
@@ -712,10 +705,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     // Refund usage kalau request ke upstream gagal sebelum dapat respons
     // (timeout, connection refused, DNS error). User tidak boleh kena
     // charge untuk request yang gak nyampe ke upstream.
-    if (usageCharged) {
-      db.incrementUsage(clientId, -1);
-      usageCharged = false;
-    }
+    // charge untuk request yang gak nyampe ke upstream.
 
     let statusCode = 502;
     let message = "Upstream server error atau tidak dapat dijangkau.";

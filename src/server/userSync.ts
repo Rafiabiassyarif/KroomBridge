@@ -35,7 +35,7 @@ export const syncUsersToClients = async () => {
           name: user.plan || "Default Plan",
           maxRequestsPerMinute: 60,
           monthlyQuota: 100000,
-          quotaType: "request",
+          quotaType: "token",
           allowOverage: false,
           overageRatePer1K: 0,
           allowedEndpoints: ["*"],

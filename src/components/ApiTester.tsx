@@ -186,9 +186,6 @@ export default function ApiTester() {
   const [bearerToken, setBearerToken] = useState(
     () => localStorage.getItem("kroombridge_tester_bearerToken") || "",
   );
-  const [customUpstreamKey, setCustomUpstreamKey] = useState(
-    () => localStorage.getItem("kroombridge_tester_customUpstreamKey") || "",
-  );
   const [showRawError, setShowRawError] = useState(false);
 
   const [bodyType, setBodyType] = useState<
@@ -285,7 +282,6 @@ export default function ApiTester() {
     localStorage.setItem("kroombridge_tester_apiKeyValue", apiKeyValue);
     localStorage.setItem("kroombridge_tester_jwtToken", jwtToken);
     localStorage.setItem("kroombridge_tester_bearerToken", bearerToken);
-    localStorage.setItem("kroombridge_tester_customUpstreamKey", customUpstreamKey);
     localStorage.setItem("kroombridge_tester_bodyType", bodyType);
     localStorage.setItem("kroombridge_tester_rawFormat", rawFormat);
     localStorage.setItem("kroombridge_tester_bodyContent", bodyContent);
@@ -332,7 +328,6 @@ export default function ApiTester() {
     apiKeyValue,
     jwtToken,
     bearerToken,
-    customUpstreamKey,
     bodyType,
     rawFormat,
     bodyContent,
@@ -448,10 +443,6 @@ export default function ApiTester() {
       headerObj["Authorization"] = `Bearer ${bearerToken.trim()}`;
     }
 
-    if (customUpstreamKey.trim()) {
-      headerObj["x-custom-upstream-key"] = customUpstreamKey.trim();
-    }
-
     if (authType === "jwt" && jwtToken.trim()) {
       headerObj["Authorization"] = `Bearer ${jwtToken.trim()}`;
     }
@@ -540,218 +531,9 @@ export default function ApiTester() {
     return { bodyPayload: undefined, contentType: undefined };
   };
 
-  const handleGenerateTokenForClient = async (clientId: string) => {
-    const client = clients.find((c) => c.id === clientId);
-    if (!client) return;
 
-    setIsGeneratingToken(true);
-    try {
-      const res = await fetch("/api/auth/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: client.id,
-          clientSecret: client.secretKey,
-        }),
-      });
-      const data = await res.json();
 
-      if (res.ok && data.access_token) {
-        setBearerToken(data.access_token);
-        setJwtToken(data.access_token);
-        setAuthType("bearer");
-        setResponse({
-          status: res.status,
-          time: "0 ms",
-          size: JSON.stringify(data).length + " B",
-          headers: {},
-          cookies: [],
-          data: {
-            ok: true,
-            message: `Token berhasil dibuat untuk klien '${client.name}' (${client.id}).`,
-            ...data,
-          },
-        });
-      } else {
-        setResponse({
-          status: res.status,
-          time: "0 ms",
-          size: "0 B",
-          headers: {},
-          cookies: [],
-          data: {
-            error: "Gagal generate token.",
-            details: data,
-          },
-        });
-      }
-    } catch (e: any) {
-      setResponse({
-        status: 500,
-        time: "0 ms",
-        size: "0 B",
-        headers: {},
-        cookies: [],
-        data: {
-          error: "Network error saat generate token.",
-          details: e?.message || String(e),
-        },
-      });
-    } finally {
-      setIsGeneratingToken(false);
-    }
-  };
 
-  const handleGenerateToken = async () => {
-    setIsGeneratingToken(true);
-    try {
-      // Ambil daftar klien aktif dari admin API. Pakai klien pertama yang
-      // aktif untuk demo. Kalau gak ada, jelaskan ke user.
-      const listRes = await adminFetch("/api/admin/clients");
-      if (!listRes.ok) {
-        const errBody = await listRes.json().catch(() => ({}));
-        setResponse({
-          status: listRes.status,
-          time: "0 ms",
-          size: "0 B",
-          headers: {},
-          cookies: [],
-          data: {
-            error: "Gagal ambil daftar klien.",
-            hint:
-              listRes.status === 401
-                ? "Sesi admin habis — login ulang ke dashboard."
-                : "Cek koneksi backend.",
-            details: errBody,
-          },
-        });
-        setActiveTab("authorization");
-        return;
-      }
-      const clients = await listRes.json();
-      if (!Array.isArray(clients) || clients.length === 0) {
-        setResponse({
-          status: 404,
-          time: "0 ms",
-          size: "0 B",
-          headers: {},
-          cookies: [],
-          data: {
-            error: "Belum ada klien terdaftar.",
-            hint: "Buka tab Clients di dashboard, klik 'Tambah Klien' untuk bikin klien baru.",
-          },
-        });
-        setActiveTab("authorization");
-        return;
-      }
-      const activeClient = clients.find((c: any) => c.isActive) || clients[0];
-
-      const res = await fetch("/api/auth/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: activeClient.id,
-          clientSecret: activeClient.secretKey,
-        }),
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.access_token) {
-        setResponse({
-          status: res.status,
-          time: "0 ms",
-          size: "0 B",
-          headers: {},
-          cookies: [],
-          data: {
-            error: "Gagal generate token.",
-            usedClientId: activeClient.id,
-            details: data,
-          },
-        });
-        setActiveTab("authorization");
-        return;
-      }
-
-      setBearerToken(data.access_token);
-      setAuthType("bearer");
-      setActiveTab("authorization");
-      setResponse({
-        status: res.status,
-        time: "0 ms",
-        size: JSON.stringify(data).length + " B",
-        headers: {},
-        cookies: [],
-        data: {
-          ok: true,
-          message: `Token berhasil dibuat untuk klien '${activeClient.name}' (${activeClient.id}).`,
-          ...data,
-        },
-      });
-    } catch (e: any) {
-      console.error(e);
-      setResponse({
-        status: 500,
-        time: "0 ms",
-        size: "0 B",
-        headers: {},
-        cookies: [],
-        data: {
-          error: "Network error saat generate token.",
-          details: e?.message || String(e),
-        },
-      });
-      setActiveTab("authorization");
-    } finally {
-      setIsGeneratingToken(false);
-    }
-  };
-
-  // Helper: decode JWT exp claim. Return true kalau token akan expired
-  // dalam <60 detik (atau invalid/empty).
-  const isTokenExpiredOrEmpty = (token: string): boolean => {
-    if (!token || !token.trim()) return true;
-    try {
-      const parts = token.split(".");
-      if (parts.length !== 3) return true;
-      const payload = JSON.parse(
-        atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")),
-      );
-      if (typeof payload.exp !== "number") return false;
-      // Buffer 60 detik supaya gak race-condition di network latency
-      return payload.exp * 1000 < Date.now() + 60_000;
-    } catch {
-      return true;
-    }
-  };
-
-  const ensureValidBearerToken = async (): Promise<string> => {
-    if (authType !== "bearer") return bearerToken;
-    if (!isTokenExpiredOrEmpty(bearerToken)) return bearerToken;
-    // Token kosong / expired → auto-generate
-    try {
-      const listRes = await adminFetch("/api/admin/clients");
-      if (!listRes.ok) return "";
-      const clients = await listRes.json();
-      if (!Array.isArray(clients) || clients.length === 0) return "";
-      const activeClient = clients.find((c: any) => c.isActive) || clients[0];
-
-      const tokenRes = await fetch("/api/auth/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: activeClient.id,
-          clientSecret: activeClient.secretKey,
-        }),
-      });
-      const data = await tokenRes.json();
-      if (!tokenRes.ok || !data.access_token) return "";
-      setBearerToken(data.access_token);
-      return data.access_token;
-    } catch {
-      return "";
-    }
-  };
 
   const replaceEnvVars = (text: string) => {
     if (!activeEnvId || !text || typeof text !== "string") return text;
@@ -782,7 +564,7 @@ export default function ApiTester() {
     }
 
     try {
-      const usableToken = await ensureValidBearerToken();
+      const usableToken = bearerToken;
 
       const { bodyPayload, contentType } = buildBodyPayload();
       const headersObj = computedHeaders(contentType);
@@ -1024,49 +806,7 @@ export default function ApiTester() {
             </p>
           </div>
         </div>
-        <div className="relative z-10 flex items-center gap-2">
-          <button
-            onClick={() => setIsEnvModalOpen(true)}
-            className="px-3.5 py-2 bg-slate-800/40 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
-          >
-            <Settings2 className="w-3.5 h-3.5" />
-            <span>{activeEnvId ? environments.find((e) => e.id === activeEnvId)?.name || "Environments" : "Environments"}</span>
-          </button>
-          
-          <button
-            onClick={() => setIsSnippetModalOpen(true)}
-            className="px-3.5 py-2 bg-slate-800/40 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
-          >
-            <Code className="w-3.5 h-3.5" />
-            <span>Code Snippet</span>
-          </button>
 
-          <button
-            onClick={() => {
-              setMethod("POST");
-              setUrl(`${window.location.origin}/gateway/kroma/v1/chat/completions`);
-              setAuthType("bearer");
-              setActiveTab("body");
-              setBodyType("raw");
-              setRawFormat("json");
-              setIsStreaming(false);
-              setBodyContent(JSON.stringify({
-                model: "openai/gpt-4o-mini",
-                messages: [
-                  {
-                    role: "user",
-                    content: "Halo, jawab singkat."
-                  }
-                ],
-                stream: false
-              }, null, 2));
-            }}
-            className="px-3.5 py-2 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 hover:from-blue-500/35 hover:to-indigo-500/35 text-blue-700 dark:text-blue-300 border border-blue-200/40 dark:border-blue-800/40 text-xs font-black rounded-xl transition-all active:scale-95 flex items-center gap-1.5 shadow-sm"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-            <span>Preset: AI Chat</span>
-          </button>
-        </div>
       </div>
 
       <PanelGroup id="api-tester-panels" autoSave="api-tester-panels" orientation="horizontal" className="flex-1 min-h-0 gap-6">
@@ -1274,36 +1014,6 @@ export default function ApiTester() {
 
                   {authType === "bearer" && (
                     <div className="rounded-2xl border border-emerald-200/60 dark:border-emerald-800/40 bg-emerald-50/60 dark:bg-emerald-900/10 p-4 space-y-3">
-                      {clients.length > 0 && (
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-emerald-100/30">
-                          <div>
-                            <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 block">Pilih Klien untuk Generate Token:</span>
-                            <span className="text-[10px] text-emerald-600/70 block">Otomatis buat JWT token untuk klien terpilih</span>
-                          </div>
-                          <div className="flex gap-2 items-center">
-                            <select
-                              value={selectedClientId}
-                              onChange={(e) => setSelectedClientId(e.target.value)}
-                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 min-w-40 focus:outline-none"
-                            >
-                              {clients.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name} ({c.id})
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              type="button"
-                              onClick={() => handleGenerateTokenForClient(selectedClientId)}
-                              disabled={isGeneratingToken}
-                              className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1 shadow-sm"
-                            >
-                              <Key className="w-3.5 h-3.5" />
-                              <span>Buat Token</span>
-                            </button>
-                          </div>
-                        </div>
-                      )}
                       <div className="space-y-1">
                         <label className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
                           Token
@@ -1331,55 +1041,11 @@ export default function ApiTester() {
                       <p className="text-xs text-emerald-600/80">
                         Header Authorization dibuat otomatis.
                       </p>
-                      
-                      <div className="pt-2 mt-2 border-t border-emerald-100/30 space-y-1">
-                        <label className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
-                          Upstream Kroma API Key (Opsional)
-                        </label>
-                        <input
-                          type="password"
-                          value={customUpstreamKey}
-                          onChange={(e) => setCustomUpstreamKey(e.target.value)}
-                          placeholder="Override API Key Kroma..."
-                          className="w-full px-4 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-white/80 dark:bg-slate-900 text-slate-700 dark:text-slate-200 font-mono text-sm focus:outline-none focus:ring-2 ring-emerald-300/40"
-                        />
-                        <p className="text-[10px] text-emerald-600/80">Jika diisi, akan mengabaikan API Key dari Settings dan langsung meneruskannya ke Kroma AI.</p>
-                      </div>
                     </div>
                   )}
 
                   {authType === "jwt" && (
                     <div className="rounded-2xl border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/60 dark:bg-indigo-900/10 p-4 space-y-3">
-                      {clients.length > 0 && (
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-indigo-100/30">
-                          <div>
-                            <span className="text-xs font-bold text-indigo-800 dark:text-indigo-300 block">Pilih Klien untuk Generate Token:</span>
-                            <span className="text-[10px] text-indigo-600/70 block">Otomatis buat JWT token untuk klien terpilih</span>
-                          </div>
-                          <div className="flex gap-2 items-center">
-                            <select
-                              value={selectedClientId}
-                              onChange={(e) => setSelectedClientId(e.target.value)}
-                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 min-w-40 focus:outline-none"
-                            >
-                              {clients.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name} ({c.id})
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              type="button"
-                              onClick={() => handleGenerateTokenForClient(selectedClientId)}
-                              disabled={isGeneratingToken}
-                              className="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-black rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1 shadow-sm"
-                            >
-                              <Key className="w-3.5 h-3.5" />
-                              <span>Buat Token</span>
-                            </button>
-                          </div>
-                        </div>
-                      )}
                       <div className="space-y-1">
                         <label className="text-xs font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider block">
                           JWT Token
@@ -2153,27 +1819,6 @@ export default function ApiTester() {
         </Panel>
       </PanelGroup>
 
-      {isEnvModalOpen && (
-        <EnvironmentsModal
-          environments={environments}
-          setEnvironments={setEnvironments}
-          activeEnvId={activeEnvId}
-          setActiveEnvId={setActiveEnvId}
-          onClose={() => setIsEnvModalOpen(false)}
-        />
-      )}
-
-      {isSnippetModalOpen && (
-        <CodeSnippetsModal
-          requestConfig={{
-            method,
-            url: requestUrl,
-            headers: Object.fromEntries(headers.filter(h => h.active && h.key).map(h => [h.key, h.value])),
-            body: bodyType === "raw" ? bodyContent : undefined
-          }}
-          onClose={() => setIsSnippetModalOpen(false)}
-        />
-      )}
     </motion.div>
   );
 }

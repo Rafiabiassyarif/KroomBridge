@@ -25,6 +25,7 @@ import {
   Menu,
   X,
   Key,
+  BookOpen,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "./lib/utils";
@@ -40,6 +41,7 @@ import LoginView from "./components/LoginView";
 import ApiTester from "./components/ApiTester";
 import SearchPalette from "./components/SearchPalette";
 import ModelsView from "./components/ModelsView";
+import DocsView from "./components/DocsView";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -145,6 +147,7 @@ export default function App() {
     { id: "models", label: "Model AI", icon: Sparkles },
     { id: "security", label: "Security", icon: ShieldCheck },
     { id: "tester", label: "API Tester", icon: TerminalSquare },
+    { id: "docs", label: "API Docs", icon: BookOpen },
     { id: "architecture", label: "Architecture", icon: Layers },
     { id: "apikeys", label: "API Keys", icon: Key },
     { id: "settings", label: "Settings", icon: Settings },
@@ -379,6 +382,7 @@ export default function App() {
               {activeTab === "packages" && <PackagesView />}
               {activeTab === "routes" && <RoutesView />}
               {activeTab === "models" && <ModelsView />}
+              {activeTab === "docs" && <DocsView />}
               { activeTab === "security" && <SecurityView /> }
               { activeTab === "architecture" && <ArchitectureView /> }
               { activeTab === "apikeys" && <ApiKeyView /> }

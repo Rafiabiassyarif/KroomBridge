@@ -381,7 +381,7 @@ export default function ClientsView() {
                           {client.usageThisMonth.toLocaleString()}{" "}
                           <span className="text-slate-400 font-medium">
                             / {activeQuota.toLocaleString()}{" "}
-                            {pkg?.quotaType === "token" ? "token" : "token"}
+                            token
                           </span>
                         </div>
                         <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 mt-2 overflow-hidden">
