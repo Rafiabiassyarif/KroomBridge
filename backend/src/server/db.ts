@@ -497,7 +497,17 @@ export class DatabaseCache {
   incrementUsage(clientId: string, amount: number = 1) {
     const client = this.getClient(clientId);
     if (!client) return;
-    client.usageThisMonth += amount;
+
+    const pkg = this.getPackage(client.packageId);
+    const allowOverage = pkg ? pkg.allowOverage : false;
+
+    if (!allowOverage) {
+      const activeQuota = client.customQuota ?? (pkg ? pkg.monthlyQuota : 0);
+      client.usageThisMonth = Math.min(client.usageThisMonth + amount, activeQuota);
+    } else {
+      client.usageThisMonth += amount;
+    }
+
     if (pool)
       pool
         .query("UPDATE clients SET usageThisMonth = ? WHERE id = ?", [
