@@ -458,6 +458,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         const estimatedPromptTokensScaled = Math.ceil(estimatedPromptTokens * modelMultiplier);
 
         if (!pkg.allowOverage && estimatedPromptTokensScaled > remainingQuota) {
+          db.incrementUsage(clientId, estimatedPromptTokensScaled);
           logRequest(402, "Prompt melebihi sisa kuota");
           return res.status(402).json({
             error: "Prompt terlalu besar untuk sisa kuota Anda.",
@@ -465,6 +466,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
               remaining_quota: remainingQuota,
               estimated_prompt_cost: estimatedPromptTokensScaled,
               model_multiplier: modelMultiplier,
+              penalty_applied: true,
             },
           });
         }
@@ -481,6 +483,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
 
         if (!pkg.allowOverage) {
           if (allowedCompletionTokens < 10) {
+            db.incrementUsage(clientId, estimatedPromptTokensScaled);
             logRequest(402, "Sisa kuota tidak cukup untuk respons");
             return res.status(402).json({
               error: "Sisa kuota Anda terlalu kecil untuk menghasilkan respons AI.",
@@ -488,6 +491,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
                 remaining_quota: remainingQuota,
                 estimated_prompt_cost: estimatedPromptTokensScaled,
                 allowed_completion_tokens: allowedCompletionTokens,
+                penalty_applied: true,
               },
             });
           }
