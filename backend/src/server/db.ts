@@ -323,6 +323,7 @@ export type DatabaseSchema = {
     lastAnnualQuotaReset?: string;
     kromaApiKey?: string;
     apiKeys?: ApiKey[];
+    disabledModels?: string[];
   };
 };
 

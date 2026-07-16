@@ -7,43 +7,49 @@ import {
   RefreshCw,
   Check,
   AlertCircle,
-  Key
+  ArrowUp,
+  ArrowDown,
+  Power
 } from "lucide-react";
 
 const CHAT_MODELS = [
-  { name: "GPT 5.6", price: "$5.5", unit: "1M tokens", provider: "OpenAI" },
-  { name: "Claude Sonnet 3.5", price: "$3.5", unit: "1M tokens", provider: "Anthropic" },
-  { name: "Gemini 3.5 Flash", price: "$1.5", unit: "1M tokens", provider: "Google" },
-  { name: "Kimi K2.7 Code", price: "$0.95", unit: "1M tokens", provider: "Moonshot" },
-  { name: "Qwen 3.6 72B", price: "$0.8", unit: "1M tokens", provider: "Alibaba" },
+  { name: "GPT 5.6", multiplier: 5.5, provider: "OpenAI" },
+  { name: "Claude Sonnet 3.5", multiplier: 3.5, provider: "Anthropic" },
+  { name: "Gemini 3.5 Flash", multiplier: 1.5, provider: "Google" },
+  { name: "Kimi K2.7 Code", multiplier: 0.95, provider: "Moonshot" },
+  { name: "Qwen 3.6 72B", multiplier: 0.8, provider: "Alibaba" },
 ];
 
+type SortConfig = {
+  key: "name" | "multiplier";
+  direction: "asc" | "desc";
+} | null;
+
 export default function ModelsView() {
-  const [activeModels, setActiveModels] = useState(CHAT_MODELS);
+  const [activeModels, setActiveModels] = useState<any[]>(CHAT_MODELS);
+  const [disabledModels, setDisabledModels] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState<"idle" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
+  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
   const fetchKromaModels = async () => {
     setIsLoading(true);
     setSyncStatus("idle");
     try {
-      const url = `/api/admin/providers`;
-      const res = await adminFetch(url);
+      // Ambil daftar model dari Kroma AI
+      const res = await adminFetch(`/api/admin/providers`);
       if (!res.ok) {
-        let msg = "Gagal mengambil data dari server.";
-        try {
-          const errData = await res.json();
-          if (errData.error) msg = errData.error;
-        } catch(e) {}
-        
-        console.error("Sync Kroma Error:", msg);
-        setErrorMsg(msg);
-        setActiveModels([]);
-        setSyncStatus("error");
-        setTimeout(() => setSyncStatus("idle"), 5000);
-        return;
+        throw new Error("Gagal mengambil data model dari server Kroma AI.");
       }
+      
+      // Ambil data meta (untuk mendapatkan disabledModels)
+      const metaRes = await adminFetch(`/api/admin/system/meta`);
+      if (metaRes.ok) {
+        const metaData = await metaRes.json();
+        setDisabledModels(metaData.disabledModels || []);
+      }
+
       const responseData = await res.json();
       const providers = responseData.data || [];
       
@@ -55,35 +61,33 @@ export default function ModelsView() {
 
         modelsList.forEach((modelStr: string) => {
           const name = modelStr;
-          let price = 2.0; // Default
+          let multiplier = 1.0; // Default multiplier
           const n = name.toLowerCase();
           
-          if (n.includes("qwen")) { price = 0.9; } 
-          else if (n.includes("llama")) { price = 0.75; } 
-          else if (n.includes("kimi") || n.includes("moonshot") || n.includes("minimax")) { price = 1.5; }
-          else if (n.includes("deepseek")) { price = 1.2; }
-          else if (n.includes("nemotron")) { price = 1.0; }
+          if (n.includes("qwen")) { multiplier = 0.8; } 
+          else if (n.includes("llama")) { multiplier = 0.75; } 
+          else if (n.includes("kimi") || n.includes("moonshot") || n.includes("minimax")) { multiplier = 0.95; }
+          else if (n.includes("deepseek")) { multiplier = 1.2; }
+          else if (n.includes("nemotron")) { multiplier = 1.0; }
+          else if (n.includes("gemini")) { 
+            if (n.includes("flash")) multiplier = 1.5; 
+            else if (n.includes("pro")) multiplier = 3.0; 
+            else multiplier = 1.5; 
+          }
           else if (n.includes("claude")) { 
-            if (n.includes("opus")) price = 16.5; 
-            else if (n.includes("sonnet")) price = 3.5; 
-            else if (n.includes("haiku")) price = 0.5; 
-            else price = 3.5; 
+            if (n.includes("opus")) multiplier = 5.0; 
+            else if (n.includes("sonnet")) multiplier = 3.5; 
+            else if (n.includes("haiku")) multiplier = 0.5; 
+            else multiplier = 3.5; 
           }
           else if (n.includes("gpt")) { 
-            if (n.includes("mini")) price = 0.3; 
-            else if (n.includes("4o")) price = 5.5; 
-            else price = 5.5; 
-          }
-          else if (n.includes("gemini")) { 
-            if (n.includes("flash")) price = 0.15; 
-            else if (n.includes("pro")) price = 1.5; 
-            else price = 1.0; 
+            if (n.includes("mini")) multiplier = 0.3; 
+            else multiplier = 5.5; 
           }
 
           allModels.push({
             name,
-            price: `$${price}`,
-            unit: "1M tokens",
+            multiplier,
             provider: providerName
           });
         });
@@ -97,7 +101,7 @@ export default function ModelsView() {
         setSyncStatus("idle");
       }
     } catch (err: any) {
-      console.error("Gagal mengambil Kroma models untuk pricing:", err);
+      console.error("Sync Kroma Error:", err);
       setErrorMsg(err.message || "Terjadi kesalahan jaringan.");
       setActiveModels([]);
       setSyncStatus("error");
@@ -110,6 +114,62 @@ export default function ModelsView() {
   useEffect(() => {
     fetchKromaModels();
   }, []);
+
+  const handleSort = (key: "name" | "multiplier") => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const toggleModelStatus = async (modelName: string) => {
+    const isCurrentlyDisabled = disabledModels.includes(modelName);
+    const newDisabledModels = isCurrentlyDisabled
+      ? disabledModels.filter((m) => m !== modelName)
+      : [...disabledModels, modelName];
+
+    // Optimistic UI update
+    setDisabledModels(newDisabledModels);
+
+    try {
+      await adminFetch(`/api/admin/system/meta`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ disabledModels: newDisabledModels }),
+      });
+    } catch (error) {
+      console.error("Failed to update disabled models:", error);
+      // Revert on error
+      setDisabledModels(disabledModels);
+    }
+  };
+
+  // Apply sorting
+  const sortedModels = React.useMemo(() => {
+    let sortableModels = [...activeModels];
+    if (sortConfig !== null) {
+      sortableModels.sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === "asc" ? -1 : 1;
+        }
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === "asc" ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableModels;
+  }, [activeModels, sortConfig]);
+
+  const SortIcon = ({ columnKey }: { columnKey: "name" | "multiplier" }) => {
+    if (sortConfig?.key !== columnKey) return <ArrowUp className="w-3 h-3 text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />;
+    return sortConfig.direction === "asc" ? (
+      <ArrowUp className="w-3 h-3 text-blue-500" />
+    ) : (
+      <ArrowDown className="w-3 h-3 text-blue-500" />
+    );
+  };
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-10">
@@ -128,7 +188,7 @@ export default function ModelsView() {
             Kroma AI Catalog
           </h2>
           <p className="text-slate-500 dark:text-slate-400 text-sm ml-1 font-medium max-w-2xl">
-            Daftar model Kroma AI yang tersedia dan tersinkronisasi di gateway Anda beserta estimasi harga per token.
+            Daftar model Kroma AI yang tersedia dan tersinkronisasi di gateway Anda beserta pengali token (multiplier).
           </p>
         </div>
       </motion.div>
@@ -164,7 +224,7 @@ export default function ModelsView() {
               )}
             </h3>
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
-              Daftar model Kroma AI yang tersedia di gateway Anda beserta estimasi harga per token.
+              Atur status model dan urutkan berdasarkan nama atau nilai pengali (multiplier).
             </p>
           </div>
           <div className="flex items-center space-x-3">
@@ -190,31 +250,68 @@ export default function ModelsView() {
         <div className="bg-white dark:bg-[#151921] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-bold text-[10px] uppercase tracking-wider">
+              <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-bold text-[10px] uppercase tracking-wider select-none">
                 <tr>
-                  <th className="px-6 py-4">Model</th>
-                  <th className="px-6 py-4">Unit Price</th>
+                  <th 
+                    className="px-6 py-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors group"
+                    onClick={() => handleSort("name")}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <span>Model</span>
+                      <SortIcon columnKey="name" />
+                    </div>
+                  </th>
+                  <th 
+                    className="px-6 py-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors group"
+                    onClick={() => handleSort("multiplier")}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <span>Token Multiplier</span>
+                      <SortIcon columnKey="multiplier" />
+                    </div>
+                  </th>
+                  <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Provider</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/30">
-                {activeModels.map((model, idx) => {
+                {sortedModels.map((model, idx) => {
+                  const isDisabled = disabledModels.includes(model.name);
+                  
                   return (
                   <tr
                     key={idx}
-                    className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors"
+                    className={`transition-colors ${isDisabled ? 'bg-slate-50/50 dark:bg-slate-900/20 opacity-60 grayscale-[0.5]' : 'hover:bg-slate-50 dark:hover:bg-white/[0.02]'}`}
                   >
                     <td className="px-6 py-4 font-bold text-slate-800 dark:text-slate-200 flex items-center space-x-3">
-                      <div className="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                        <Sparkles className="w-3 h-3 text-slate-400" />
+                      <div className={`w-6 h-6 rounded-md flex items-center justify-center ${isDisabled ? 'bg-slate-200 dark:bg-slate-800' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                        {isDisabled ? (
+                           <Power className="w-3 h-3 text-slate-400" />
+                        ) : (
+                           <Sparkles className="w-3 h-3 text-slate-400" />
+                        )}
                       </div>
-                      <span>{model.name}</span>
+                      <span className={isDisabled ? 'line-through text-slate-500 dark:text-slate-500' : ''}>{model.name}</span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-1.5">
-                        <span className="font-bold text-slate-800 dark:text-slate-200">{model.price}</span>
-                        <span className="text-xs text-slate-500 dark:text-slate-500 font-medium">/ {model.unit}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{model.multiplier}x</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-500 font-medium tracking-wide">MULTIPLIER</span>
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => toggleModelStatus(model.name)}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
+                          !isDisabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                            !isDisabled ? 'translate-x-5' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700/50">
@@ -225,7 +322,7 @@ export default function ModelsView() {
                 )})}
                 {activeModels.length === 0 && !isLoading && (
                   <tr>
-                    <td colSpan={3} className="px-6 py-10 text-center text-slate-500 dark:text-slate-400 text-sm font-medium">
+                    <td colSpan={4} className="px-6 py-10 text-center text-slate-500 dark:text-slate-400 text-sm font-medium">
                       {errorMsg || "Gagal mendapatkan daftar model. Pastikan server Kroma AI Anda menyala dan terhubung."}
                     </td>
                   </tr>
@@ -235,7 +332,7 @@ export default function ModelsView() {
           </div>
           <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-500 dark:text-slate-400 flex items-start space-x-2">
             <Info className="w-4 h-4 shrink-0 mt-0.5 text-slate-400" />
-            <p>Daftar harga di atas merupakan estimasi harga per token berdasarkan nama model AI.</p>
+            <p>Klik pada header kolom <strong>Model</strong> atau <strong>Token Multiplier</strong> untuk mengurutkan daftar. Anda dapat mematikan model tertentu dengan menekan tombol status.</p>
           </div>
         </div>
       </motion.div>

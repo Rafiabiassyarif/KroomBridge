@@ -336,6 +336,17 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     req.body.model = await getFullModelName(req.body.model);
   }
 
+  // ── Cek Model yang Dinonaktifkan ──
+  if (req.body?.model) {
+    const meta = db.getMeta();
+    const disabledModels = meta.disabledModels || [];
+    if (disabledModels.includes(req.body.model)) {
+      return res.status(403).json({
+        error: "Model ini sedang dinonaktifkan oleh Administrator.",
+      });
+    }
+  }
+
   // ── Calculate Model Multiplier ──
   let modelMultiplier = 1.0;
   
