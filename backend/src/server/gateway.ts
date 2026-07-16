@@ -254,6 +254,55 @@ export const gatewayMiddleware = (
 };
 
 // ============================================================
+// SMART MODEL MAPPING
+// ============================================================
+// Cache in-memory untuk menyimpan mapping (e.g. qwen3.5-9b -> pc-putih/lmstudio/qwen3.5-9b)
+let modelMappingCache: Record<string, string> = {};
+let lastModelSync = 0;
+
+async function getFullModelName(shortName: string): Promise<string> {
+  // Jika nama model sudah memiliki garis miring, asumsikan itu sudah nama lengkap
+  if (shortName.includes("/")) return shortName;
+
+  // Gunakan cache jika masih baru (kurang dari 1 jam)
+  if (modelMappingCache[shortName] && Date.now() - lastModelSync < 3600000) {
+    return modelMappingCache[shortName];
+  }
+
+  try {
+    const meta = db.getMeta();
+    const apiKey = meta.apiKeys?.find(k => k.provider === 'kroma')?.key || meta.kromaApiKey || process.env.KROMA_API_KEY;
+    const KROMA_API_URL = process.env.KROMA_API_URL || "https://kroma.kroombox.com";
+    
+    if (apiKey) {
+      const res = await fetch(`${KROMA_API_URL}/v1/models`, {
+        headers: { "Authorization": `Bearer ${apiKey}` }
+      });
+      
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          modelMappingCache = {};
+          for (const m of json.data) {
+            if (m.id && typeof m.id === "string") {
+              const stripped = m.id.split("/").pop();
+              if (stripped) {
+                modelMappingCache[stripped] = m.id;
+              }
+            }
+          }
+          lastModelSync = Date.now();
+          return modelMappingCache[shortName] || shortName;
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error("[SmartMapping] Gagal melakukan sinkronisasi model:", err.message);
+  }
+  return shortName;
+}
+
+// ============================================================
 // GATEWAY ROUTER
 // ============================================================
 export const gatewayRouter = express.Router();
@@ -281,6 +330,11 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         fullPath.startsWith(r.path),
     )
     .sort((a, b) => b.path.length - a.path.length)[0];
+
+  // ── Smart Model Mapping ──
+  if (req.body?.model && typeof req.body.model === "string") {
+    req.body.model = await getFullModelName(req.body.model);
+  }
 
   // ── Calculate Model Multiplier ──
   let modelMultiplier = 1.0;
