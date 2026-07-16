@@ -836,9 +836,18 @@ export default function DashboardView({
   const [prevStats, setPrevStats] = useState<DashboardStats>(initialStats);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState<IntervalOption>(60);
+  const [refreshInterval, setRefreshInterval] = useState<IntervalOption>(() => {
+    const saved = localStorage.getItem("kb_dash_interval");
+    const valid: IntervalOption[] = [3, 5, 10, 30, 60];
+    const parsed = saved ? (parseInt(saved) as IntervalOption) : null;
+    return parsed && valid.includes(parsed) ? parsed : 60;
+  });
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [timeRange, setTimeRange] = useState<TimeRange>("24h");
+  const [timeRange, setTimeRange] = useState<TimeRange>(() => {
+    const saved = localStorage.getItem("kb_dash_range");
+    const valid: TimeRange[] = ["5m", "1h", "24h", "7d", "30d", "1y"];
+    return saved && valid.includes(saved as TimeRange) ? (saved as TimeRange) : "24h";
+  });
   const [serviceFilter, setServiceFilter] = useState<string>("__all__");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tickToRedraw, setTickToRedraw] = useState(0);
@@ -857,6 +866,15 @@ export default function DashboardView({
   useEffect(() => {
     autoRefreshRef.current = autoRefresh;
   }, [autoRefresh]);
+
+  // Persist pengaturan interval & range ke localStorage
+  useEffect(() => {
+    localStorage.setItem("kb_dash_interval", String(refreshInterval));
+  }, [refreshInterval]);
+
+  useEffect(() => {
+    localStorage.setItem("kb_dash_range", timeRange);
+  }, [timeRange]);
 
   const fetchStats = async () => {
     setIsRefreshing(true);
