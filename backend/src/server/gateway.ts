@@ -275,22 +275,26 @@ async function getFullModelName(shortName: string): Promise<string> {
     const KROMA_API_URL = process.env.KROMA_API_URL || "https://kroma.kroombox.com";
     
     if (apiKey) {
-      const res = await fetch(`${KROMA_API_URL}/v1/models`, {
-        headers: { "Authorization": `Bearer ${apiKey}` }
+      // Mengambil dari /v1/providers/ karena Kroma AI menyediakan list model disana
+      const res = await fetch(`${KROMA_API_URL}/v1/providers/`, {
+        headers: { "Authorization": `Bearer ${apiKey}`, "x-api-key": apiKey }
       });
       
       if (res.ok) {
         const json = await res.json();
         if (json.data && Array.isArray(json.data)) {
           modelMappingCache = {};
-          for (const m of json.data) {
-            if (m.id && typeof m.id === "string") {
-              const stripped = m.id.split("/").pop();
+          
+          json.data.forEach((provider: any) => {
+            const modelsList = provider.models || [];
+            modelsList.forEach((fullModelName: string) => {
+              const stripped = fullModelName.split("/").pop();
               if (stripped) {
-                modelMappingCache[stripped] = m.id;
+                modelMappingCache[stripped] = fullModelName;
               }
-            }
-          }
+            });
+          });
+          
           lastModelSync = Date.now();
           return modelMappingCache[shortName] || shortName;
         }
