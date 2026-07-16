@@ -5,16 +5,16 @@ import { broadcast } from "./eventBus.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "kroombox_super_secret_key_123!";
 
-function countWords(data: any): number {
+function estimateTokens(data: any): number {
   if (typeof data === "string") {
-    return data.trim().split(/\s+/).filter(Boolean).length;
+    return Math.ceil(data.length / 4);
   }
   if (typeof data === "object" && data !== null) {
-    let count = 0;
-    for (const key in data) {
-      count += countWords(data[key]);
+    try {
+      return Math.ceil(JSON.stringify(data).length / 4);
+    } catch {
+      return 10;
     }
-    return count;
   }
   return 0;
 }
@@ -453,9 +453,8 @@ gatewayRouter.use(async (req: Request, res: Response) => {
           });
         }
 
-        // Estimasi token dari prompt menggunakan heuristik (jumlah kata * 1.5 + 20)
-        const inputWords = countWords(processedBody);
-        const estimatedPromptTokens = Math.max(1, Math.ceil(inputWords * 1.5) + 20);
+        // Estimasi token dari prompt menggunakan heuristik karakter / 4
+        const estimatedPromptTokens = Math.max(1, estimateTokens(processedBody));
         const estimatedPromptTokensScaled = Math.ceil(estimatedPromptTokens * modelMultiplier);
 
         if (!pkg.allowOverage && estimatedPromptTokensScaled > remainingQuota) {
@@ -626,9 +625,9 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         if (usageMatch) {
           baseTokens = parseInt(usageMatch[1], 10);
         } else {
-          const inputWords = countWords(processedBody);
-          const outputWords = countWords(fullText);
-          baseTokens = Math.max(1, Math.ceil((inputWords + outputWords) * 1.5) + 20);
+          const inputTokens = estimateTokens(processedBody);
+          const outputTokens = estimateTokens(fullText);
+          baseTokens = Math.max(1, inputTokens + outputTokens);
         }
         const tokens = Math.ceil(baseTokens * modelMultiplier);
         db.incrementUsage(clientId, tokens);
@@ -650,9 +649,9 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         if (jsonResponse.usage?.total_tokens) {
           baseTokens = jsonResponse.usage.total_tokens;
         } else {
-          const inputWords = countWords(processedBody);
-          const outputWords = countWords(jsonResponse);
-          baseTokens = Math.max(1, Math.ceil((inputWords + outputWords) * 1.5) + 20);
+          const inputTokens = estimateTokens(processedBody);
+          const outputTokens = estimateTokens(jsonResponse);
+          baseTokens = Math.max(1, inputTokens + outputTokens);
         }
         const tokens = Math.ceil(baseTokens * modelMultiplier);
 
@@ -684,9 +683,9 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         upstreamResponse.status >= 200 &&
         upstreamResponse.status < 300
       ) {
-        const inputWords = countWords(processedBody);
-        const outputWords = countWords(textResponse);
-        const baseTokens = Math.max(1, Math.ceil((inputWords + outputWords) * 1.5) + 20);
+        const inputTokens = estimateTokens(processedBody);
+        const outputTokens = estimateTokens(textResponse);
+        const baseTokens = Math.max(1, inputTokens + outputTokens);
         const tokens = Math.ceil(baseTokens * modelMultiplier);
 
         db.incrementUsage(clientId, tokens);
