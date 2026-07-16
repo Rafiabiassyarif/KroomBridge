@@ -39,7 +39,7 @@ export default function DocsView() {
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer <API_KEY_ANDA>" \\
   -d '{
-    "model": "pc-putih/lmstudio/qwen3.6-27b-uncensored-hauhaucs-aggressive",
+    "model": "qwen3.5-9b-ultra-uncensored-heretic-v2",
     "messages": [
       {
         "role": "system",
@@ -155,7 +155,7 @@ print(response.choices[0].message.content)`;
               <li>Paste JSON payload berikut ke dalamnya, lalu klik <strong>Send</strong>:</li>
             </ol>
             <CodeSnippet code={`{
-  "model": "pc-putih/lmstudio/qwen3.6-27b-uncensored-hauhaucs-aggressive",
+  "model": "qwen3.5-9b-ultra-uncensored-heretic-v2",
   "messages": [
     { "role": "system", "content": "Anda adalah asisten AI yang cerdas." },
     { "role": "user", "content": "Halo! Tolong buatkan saya pantun jenaka." }
