@@ -708,6 +708,19 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         jsonResponse = mappedResponse;
       }
 
+      // ── Intercept /models Endpoint to Strip Prefix ──
+      if (req.path.match(/\/models\/?$/i)) {
+        if (jsonResponse.data && Array.isArray(jsonResponse.data)) {
+          jsonResponse.data = jsonResponse.data.map((m: any) => {
+            if (m.id && typeof m.id === "string") {
+              // Hapus semua prefix (seperti pc-putih/lmstudio/)
+              m.id = m.id.split("/").pop();
+            }
+            return m;
+          });
+        }
+      }
+
       return res.status(upstreamResponse.status).json(jsonResponse);
     } else {
       const textResponse = await upstreamResponse.text();
