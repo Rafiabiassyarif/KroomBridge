@@ -186,7 +186,7 @@ export const gatewayMiddleware = (
         
         // Blokir IP otomatis
         db.addToIpDenylist(ipStr, `Otomatis diblokir: Anomali Rate Limit (${anomaly.count} req/dtk) dari klien ${clientId}`);
-        broadcast("security:change");
+        broadcast({ type: "security:change", data: null });
         
         return res.status(403).json({
           error: "Akses diblokir otomatis karena aktivitas anomali berlebih. IP Anda telah dimasukkan ke Denylist.",
