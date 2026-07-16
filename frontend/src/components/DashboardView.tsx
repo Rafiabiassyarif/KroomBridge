@@ -510,7 +510,7 @@ const itemVariants = {
 } as const;
 
 type TimeRange = "5m" | "1h" | "24h" | "7d" | "30d" | "1y";
-type IntervalOption = 3 | 5 | 10 | 30 | 60;
+type IntervalOption = 60 | 120 | 300 | 600;
 
 const RANGE_OPTIONS: {
   value: TimeRange;
@@ -597,7 +597,7 @@ function IntervalDropdown({
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, []);
 
-  const options: IntervalOption[] = [3, 5, 10, 30, 60];
+  const options: IntervalOption[] = [60, 120, 300, 600];
 
   const handleSelect = (opt: IntervalOption) => {
     onChange(opt);
@@ -640,7 +640,7 @@ function IntervalDropdown({
                     : "text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/60 dark:hover:bg-white/[0.04]"
                 }`}
               >
-                <span>tiap {opt} dtk</span>
+                <span>tiap {opt >= 60 ? `${opt / 60}mnt` : `${opt}dtk`}</span>
                 {value === opt && <Check className="w-3.5 h-3.5" />}
               </button>
             ))}
@@ -838,7 +838,7 @@ export default function DashboardView({
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState<IntervalOption>(() => {
     const saved = localStorage.getItem("kb_dash_interval");
-    const valid: IntervalOption[] = [3, 5, 10, 30, 60];
+    const valid: IntervalOption[] = [60, 120, 300, 600];
     const parsed = saved ? (parseInt(saved) as IntervalOption) : null;
     return parsed && valid.includes(parsed) ? parsed : 60;
   });
