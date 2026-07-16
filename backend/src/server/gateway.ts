@@ -468,9 +468,44 @@ gatewayRouter.use(async (req: Request, res: Response) => {
 
     const meta = db.getMeta();
     const customUpstreamKey = req.headers["x-custom-upstream-key"] as string;
-    console.log("[GATEWAY] matchedRoute:", matchedRoute?.path, "customUpstreamKey:", customUpstreamKey);
     const kromaApiKey = customUpstreamKey || meta.apiKeys?.find(k => k.provider === 'kroma')?.key || meta.kromaApiKey || process.env.KROMA_API_KEY;
     const KROMA_API_URL = process.env.KROMA_API_URL || "https://kroma.kroombox.com";
+
+    // ── Intercept /models Endpoint (Simulate OpenAI Compatibility for Kroma AI) ──
+    if (remainder.match(/^\/?(v1\/)?models\/?$/i)) {
+      if (matchedRoute.upstreamUrl.startsWith(KROMA_API_URL)) {
+        try {
+          const resModels = await fetch(`${KROMA_API_URL}/v1/providers/`, {
+             headers: kromaApiKey ? { "Authorization": `Bearer ${kromaApiKey}`, "x-api-key": kromaApiKey } : {}
+          });
+          if (resModels.ok) {
+             const json = await resModels.json();
+             let allModels: any[] = [];
+             const disabled = meta.disabledModels || [];
+             if (json.data && Array.isArray(json.data)) {
+                json.data.forEach((p: any) => {
+                   if (p.models && Array.isArray(p.models)) {
+                      p.models.forEach((m: string) => {
+                         const cleanName = m.split("/").pop();
+                         if (cleanName && !disabled.includes(cleanName)) {
+                            allModels.push({
+                               id: cleanName,
+                               object: "model",
+                               created: Math.floor(Date.now() / 1000),
+                               owned_by: p.name || "kroma-ai"
+                            });
+                         }
+                      });
+                   }
+                });
+             }
+             return res.status(200).json({ object: "list", data: allModels });
+          }
+        } catch (e: any) {
+           console.error("[Gateway] Gagal intercept /models Kroma:", e.message);
+        }
+      }
+    }
 
     // ── Build Request Headers ──
     const upstreamHeaders: Record<string, string> = {
