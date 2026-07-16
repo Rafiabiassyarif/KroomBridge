@@ -35,7 +35,7 @@ const CodeSnippet = ({ code, language = "bash" }: { code: string; language?: str
 export default function DocsView() {
   const baseUrl = "https://api-kroombridge.kroombox.com";
 
-  const chatRequestCode = `curl -X POST ${baseUrl}/gateway/v1/chat/completions \\
+  const chatRequestCode = `curl -X POST ${baseUrl}/gateway/kroma/v1/chat/completions \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer <API_KEY_ANDA>" \\
   -d '{
@@ -57,7 +57,7 @@ export default function DocsView() {
 
 # Inisialisasi client OpenAI dengan Base URL KroomBridge
 client = openai.OpenAI(
-    base_url="${baseUrl}/gateway/v1",
+    base_url="${baseUrl}/gateway/kroma/v1",
     api_key="<API_KEY_ANDA>"  # Masukkan API Key Klien di sini
 )
 

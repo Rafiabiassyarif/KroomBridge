@@ -200,7 +200,7 @@ export default function DeveloperPortal() {
                     <CodeBlock
                       id="auth-req"
                       code={`curl -X POST \\
-  ${baseUrl}/gateway/v1/chat/completions \\
+  ${baseUrl}/gateway/kroma/v1/chat/completions \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer sk_b878621d573c..." \\
   -d '{
