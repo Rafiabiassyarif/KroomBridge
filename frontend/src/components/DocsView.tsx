@@ -202,13 +202,20 @@ print(response.choices[0].message.content)`;
             </div>
           </div>
 
-          <p className="font-semibold text-slate-800 dark:text-slate-200 mb-4 relative z-10">Langkah Konfigurasi Aplikasi:</p>
+          <p className="font-semibold text-slate-800 dark:text-slate-200 mb-4 relative z-10">Langkah Konfigurasi di Aplikasi (Custom Endpoint):</p>
           <ul className="space-y-5 relative z-10">
             <li className="flex gap-4 items-start">
               <span className="flex items-center justify-center w-7 h-7 rounded-full bg-sky-200 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 font-bold text-sm shrink-0 shadow-sm border border-sky-300/50 dark:border-sky-700/50">1</span>
               <div className="w-full">
-                <p className="text-slate-700 dark:text-slate-300 text-[14.5px] font-medium">Ubah Pengaturan OpenAI Base URL</p>
-                <p className="text-slate-600 dark:text-slate-400 text-[13.5px] mt-1">Di dalam setting aplikasi pihak ketiga, ubah URL bawaan OpenAI (Custom Endpoint) menjadi:</p>
+                <p className="text-slate-700 dark:text-slate-300 text-[14.5px] font-bold">Pilih "OpenAI Compatible" atau "Custom Provider"</p>
+                <p className="text-slate-600 dark:text-slate-400 text-[13.5px] mt-1">Saat menambahkan koneksi API di aplikasi klien, pilih tipe <strong>OpenAI Compatible</strong> karena KroomBridge 100% mengikuti standar format OpenAI.</p>
+              </div>
+            </li>
+            <li className="flex gap-4 items-start">
+              <span className="flex items-center justify-center w-7 h-7 rounded-full bg-sky-200 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 font-bold text-sm shrink-0 shadow-sm border border-sky-300/50 dark:border-sky-700/50">2</span>
+              <div className="w-full">
+                <p className="text-slate-700 dark:text-slate-300 text-[14.5px] font-bold">Ubah Pengaturan "Base URL"</p>
+                <p className="text-slate-600 dark:text-slate-400 text-[13.5px] mt-1">Hapus URL bawaan OpenAI (seperti <code>https://api.openai.com/v1</code>) dan ganti menjadi Base URL KroomBridge Anda:</p>
                 <div className="mt-2.5 bg-white dark:bg-[#0B0E14] px-4 py-2.5 rounded-lg border border-sky-200 dark:border-sky-800/60 shadow-inner flex items-center justify-between group">
                   <code className="text-sky-600 dark:text-sky-400 font-mono text-[14px] select-all break-all">
                     {baseUrl}/gateway/v1
@@ -217,13 +224,20 @@ print(response.choices[0].message.content)`;
               </div>
             </li>
             <li className="flex gap-4 items-start">
-              <span className="flex items-center justify-center w-7 h-7 rounded-full bg-sky-200 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 font-bold text-sm shrink-0 shadow-sm border border-sky-300/50 dark:border-sky-700/50">2</span>
+              <span className="flex items-center justify-center w-7 h-7 rounded-full bg-sky-200 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 font-bold text-sm shrink-0 shadow-sm border border-sky-300/50 dark:border-sky-700/50">3</span>
               <div>
-                <p className="text-slate-700 dark:text-slate-300 text-[14.5px] font-medium">Masukkan API Key</p>
-                <p className="text-slate-600 dark:text-slate-400 text-[13.5px] mt-1">Tempelkan <strong>API Key</strong> dari dashboard ke dalam kolom pengisian API Key di aplikasi klien.</p>
+                <p className="text-slate-700 dark:text-slate-300 text-[14.5px] font-bold">Masukkan "API Key"</p>
+                <p className="text-slate-600 dark:text-slate-400 text-[13.5px] mt-1">Tempelkan <strong>API Key</strong> milik Klien dari dashboard KroomBridge ke dalam kolom <code>API Key (for Check)</code> di aplikasi.</p>
               </div>
             </li>
-            <li className="flex gap-4 items-center">
+            <li className="flex gap-4 items-start">
+              <span className="flex items-center justify-center w-7 h-7 rounded-full bg-sky-200 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 font-bold text-sm shrink-0 shadow-sm border border-sky-300/50 dark:border-sky-700/50">4</span>
+              <div>
+                <p className="text-slate-700 dark:text-slate-300 text-[14.5px] font-bold">Isi "Model ID" (Opsional)</p>
+                <p className="text-slate-600 dark:text-slate-400 text-[13.5px] mt-1">Jika diminta, masukkan nama model yang Anda dukung (contoh: <code>qwen3.6-27b...</code>) agar aplikasi bisa melakukan validasi tes koneksi.</p>
+              </div>
+            </li>
+            <li className="flex gap-4 items-center mt-6">
               <span className="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-200 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold text-sm shrink-0 shadow-sm border border-emerald-300/50 dark:border-emerald-700/50">
                 <Check className="w-4 h-4" />
               </span>
