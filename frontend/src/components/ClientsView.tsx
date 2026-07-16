@@ -489,7 +489,7 @@ export default function ClientsView() {
                               <div>
                                 <span className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-2 block flex items-center gap-2">
                                   <Shield className="w-3 h-3 text-slate-400" />{" "}
-                                  Secret Key
+                                  API Key
                                 </span>
                                 <div className="flex items-center justify-between bg-slate-950/80 p-3.5 rounded-xl border border-slate-800/80 shadow-inner">
                                   <code className="text-emerald-400 font-bold tracking-wide">
@@ -631,7 +631,7 @@ export default function ClientsView() {
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                    Token / Secret Key (Opsional)
+                    Token / API Key (Opsional)
                   </label>
                   <input
                     type="text"
@@ -849,10 +849,10 @@ export default function ClientsView() {
                 <RefreshCw className="w-6 h-6" />
               </div>
               <h3 className="font-black text-xl text-slate-900 dark:text-slate-100 mb-3">
-                Rotasi Secret Key
+                Rotasi API Key
               </h3>
               <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium leading-relaxed">
-                Yakin ingin merotasi secret key? Ini akan membatalkan token API
+                Yakin ingin merotasi API key? Ini akan membatalkan token API
                 yang sedang aktif dari klien bersangkutan secara instan.
               </p>
               <div className="flex justify-end space-x-3">

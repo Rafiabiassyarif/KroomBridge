@@ -177,7 +177,7 @@ export default function DeveloperPortal() {
                     Autentikasi API Key
                   </h3>
                   <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed mt-3 max-w-2xl">
-                    KroomBridge API Gateway menggunakan otorisasi <strong>API Key</strong> (berbasis Secret Key). Klien dapat langsung menggunakan <code className="font-mono text-xs font-bold bg-slate-100 dark:bg-slate-800 text-rose-500 dark:text-rose-400 px-1.5 py-0.5 rounded-md">Secret Key</code> mereka pada HTTP header <code className="font-mono text-xs font-bold bg-slate-100 dark:bg-slate-800 text-emerald-500 dark:text-emerald-400 px-1.5 py-0.5 rounded-md">Authorization: Bearer</code> tanpa perlu menukarkan JWT.
+                    KroomBridge API Gateway menggunakan otorisasi <strong>API Key</strong>. Klien dapat langsung menggunakan <code className="font-mono text-xs font-bold bg-slate-100 dark:bg-slate-800 text-rose-500 dark:text-rose-400 px-1.5 py-0.5 rounded-md">API Key</code> mereka pada HTTP header <code className="font-mono text-xs font-bold bg-slate-100 dark:bg-slate-800 text-emerald-500 dark:text-emerald-400 px-1.5 py-0.5 rounded-md">Authorization: Bearer</code> tanpa perlu menukarkan JWT.
                   </p>
                 </div>
 
@@ -186,7 +186,7 @@ export default function DeveloperPortal() {
                     <span className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm">
                       HEADER
                     </span>
-                    <span className="font-mono text-sm">Authorization: Bearer &lt;SECRET_KEY&gt;</span>
+                    <span className="font-mono text-sm">Authorization: Bearer &lt;API_KEY&gt;</span>
                   </h4>
                   <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 font-medium">
                     Sertakan header ini pada setiap permintaan (request) API yang Anda lakukan ke server KroomBridge.
@@ -326,7 +326,7 @@ export default function DeveloperPortal() {
                     id="wa-req"
                     code={`curl -X POST \\
   ${baseUrl}/gateway/wa/send \\
-  -H "Authorization: Bearer <SECRET_KEY_ANDA>" \\
+  -H "Authorization: Bearer <API_KEY_ANDA>" \\
   -H "Content-Type: application/json" \\
   -d '{
     "to": "+6281234567890",

@@ -38,7 +38,7 @@ export default function DocsView() {
 
   const chatRequestCode = `curl -X POST ${baseUrl}/gateway/v1/chat/completions \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer <SECRET_KEY_ANDA>" \\
+  -H "Authorization: Bearer <API_KEY_ANDA>" \\
   -d '{
     "model": "pc-putih/lmstudio/qwen3.6-27b-uncensored-hauhaucs-aggressive",
     "messages": [
@@ -59,7 +59,7 @@ export default function DocsView() {
 # Inisialisasi client OpenAI dengan Base URL KroomBridge
 client = openai.OpenAI(
     base_url="${baseUrl}/gateway/v1",
-    api_key="<SECRET_KEY_ANDA>"  # Masukkan Secret Key Klien di sini
+    api_key="<API_KEY_ANDA>"  # Masukkan API Key Klien di sini
 )
 
 # Request Chat Completion
@@ -107,17 +107,17 @@ print(response.choices[0].message.content)`;
             1. Sistem Keamanan (API Key)
           </h3>
           <p className="text-slate-600 dark:text-slate-300 text-[15px] leading-relaxed mb-6">
-            KroomBridge menggunakan sistem keamanan berbasis <strong>API Key</strong> yang 100% kompatibel dengan aplikasi pihak ketiga mana pun (seperti OpenAI). 
-            Klien Anda hanya perlu menggunakan <strong>Secret Key</strong> mereka secara langsung sebagai otorisasi.
+            KroomBridge menggunakan sistem keamanan berbasis <strong>API Key</strong> yang 100% kompatibel dengan aplikasi pihak ketiga mana pun (seperti OpenAI atau OpenRouter). 
+            Setiap klien Anda memiliki <strong>API Key</strong> mereka sendiri yang bisa digunakan secara langsung sebagai otorisasi.
           </p>
           <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/10 border border-amber-200 dark:border-amber-500/20 rounded-xl p-5">
             <p className="font-bold text-amber-900 dark:text-amber-400 mb-3 flex items-center gap-2">
               Cara Mendapatkan API Key:
             </p>
             <ol className="list-decimal pl-5 space-y-2 text-[14px] text-amber-800 dark:text-amber-200/90 font-medium">
-              <li>Masuk ke menu <strong>Clients</strong> di Dashboard KroomBridge.</li>
-              <li>Salin nilai <strong className="text-amber-900 dark:text-amber-300">Secret Key</strong> milik klien yang bersangkutan (misal: <code>sk_b878...</code>).</li>
-              <li>Berikan Secret Key tersebut kepada Klien untuk digunakan sebagai kredensial <em>Bearer Token</em> mereka.</li>
+              <li>Masuk ke menu <strong>Manajemen Pengguna (Clients & Access)</strong> di Dashboard.</li>
+              <li>Salin nilai <strong className="text-amber-900 dark:text-amber-300">API Key</strong> milik klien yang bersangkutan (misal: <code>sk_b878...</code>).</li>
+              <li>Berikan API Key tersebut kepada Klien untuk digunakan sebagai kredensial <em>Bearer Token</em> mereka (misalnya di OpenRouter, SillyTavern, dll).</li>
             </ol>
           </div>
         </div>
@@ -131,7 +131,7 @@ print(response.choices[0].message.content)`;
             2. Contoh Integrasi (cURL & Python)
           </h3>
           <p className="text-slate-600 dark:text-slate-300 text-[15px] leading-relaxed mb-4">
-            Struktur request dan respons KroomBridge dirancang <strong>100% kompatibel</strong> dengan API OpenAI, sehingga Anda bisa langsung menggunakan pustaka bawaan <em>OpenAI SDK</em> dengan memasukkan Secret Key ke dalam kolom <code>api_key</code>.
+            Struktur request dan respons KroomBridge dirancang <strong>100% kompatibel</strong> dengan API OpenAI, sehingga Anda bisa langsung menggunakan pustaka bawaan <em>OpenAI SDK</em> dengan memasukkan API Key ke dalam kolom <code>api_key</code>.
           </p>
 
           <div className="mt-8">
@@ -151,7 +151,7 @@ print(response.choices[0].message.content)`;
             <ol className="list-decimal pl-5 space-y-2 text-[14px] text-slate-700 dark:text-slate-300">
               <li>Buka aplikasi Postman, buat Request baru lalu ubah method menjadi <strong>POST</strong>.</li>
               <li>Masukkan URL: <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-sky-600 dark:text-sky-400">{baseUrl}/gateway/v1/chat/completions</code></li>
-              <li>Buka tab <strong>Headers</strong>, tambahkan Key: <code>Authorization</code> dengan Value: <code>Bearer &lt;SECRET_KEY_ANDA&gt;</code>.</li>
+              <li>Buka tab <strong>Headers</strong>, tambahkan Key: <code>Authorization</code> dengan Value: <code>Bearer &lt;API_KEY_ANDA&gt;</code>.</li>
               <li>Buka tab <strong>Body</strong>, pilih opsi <strong>raw</strong> lalu ganti text menjadi <strong>JSON</strong>.</li>
               <li>Paste JSON payload berikut ke dalamnya, lalu klik <strong>Send</strong>:</li>
             </ol>
@@ -194,7 +194,7 @@ print(response.choices[0].message.content)`;
           <div className="bg-white/60 dark:bg-black/20 backdrop-blur-sm rounded-xl p-5 border border-sky-200/50 dark:border-sky-800/30 mb-6 relative z-10">
             <p className="font-semibold text-sky-900 dark:text-sky-300 mb-3 text-sm uppercase tracking-wider">Aplikasi yang Kompatibel (Diuji & Didukung):</p>
             <div className="flex flex-wrap gap-2">
-              {['SillyTavern', 'Jan', 'LMStudio', 'Open WebUI', 'AnythingLLM', 'Dify', 'Chatbox', 'NextChat'].map(tool => (
+              {['OpenRouter', 'SillyTavern', 'Jan', 'LMStudio', 'Open WebUI', 'AnythingLLM', 'Dify', 'Chatbox', 'NextChat'].map(tool => (
                 <span key={tool} className="px-3 py-1 bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 rounded-full text-[13px] font-medium border border-sky-200 dark:border-sky-800/50">
                   {tool}
                 </span>
@@ -220,7 +220,7 @@ print(response.choices[0].message.content)`;
               <span className="flex items-center justify-center w-7 h-7 rounded-full bg-sky-200 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 font-bold text-sm shrink-0 shadow-sm border border-sky-300/50 dark:border-sky-700/50">2</span>
               <div>
                 <p className="text-slate-700 dark:text-slate-300 text-[14.5px] font-medium">Masukkan API Key</p>
-                <p className="text-slate-600 dark:text-slate-400 text-[13.5px] mt-1">Tempelkan <strong>Secret Key</strong> dari dashboard ke dalam kolom pengisian OpenAI API Key.</p>
+                <p className="text-slate-600 dark:text-slate-400 text-[13.5px] mt-1">Tempelkan <strong>API Key</strong> dari dashboard ke dalam kolom pengisian API Key di aplikasi klien.</p>
               </div>
             </li>
             <li className="flex gap-4 items-center">
