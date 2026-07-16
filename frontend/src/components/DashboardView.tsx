@@ -510,7 +510,7 @@ const itemVariants = {
 } as const;
 
 type TimeRange = "5m" | "1h" | "24h" | "7d" | "30d" | "1y";
-type IntervalOption = 3 | 5 | 10 | 30;
+type IntervalOption = 3 | 5 | 10 | 30 | 60;
 
 const RANGE_OPTIONS: {
   value: TimeRange;
@@ -597,7 +597,7 @@ function IntervalDropdown({
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, []);
 
-  const options: IntervalOption[] = [3, 5, 10, 30];
+  const options: IntervalOption[] = [3, 5, 10, 30, 60];
 
   const handleSelect = (opt: IntervalOption) => {
     onChange(opt);
@@ -836,7 +836,7 @@ export default function DashboardView({
   const [prevStats, setPrevStats] = useState<DashboardStats>(initialStats);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState<IntervalOption>(5);
+  const [refreshInterval, setRefreshInterval] = useState<IntervalOption>(60);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>("24h");
   const [serviceFilter, setServiceFilter] = useState<string>("__all__");
@@ -1037,7 +1037,7 @@ export default function DashboardView({
       );
     } else if (autoRefresh && isSseActive) {
       // Polling jarang hanya untuk memastikan sinkronisasi (tiap 10 detik)
-      intervalRef.current = window.setInterval(fetchStats, 10000);
+      intervalRef.current = window.setInterval(fetchStats, 60000);
     }
 
     return () => {
@@ -1047,7 +1047,7 @@ export default function DashboardView({
   useEffect(() => {
     const t = window.setInterval(() => {
       if (autoRefreshRef.current) setTickToRedraw((v) => v + 1);
-    }, 5000);
+    }, 60000);
     return () => window.clearInterval(t);
   }, []);
 
