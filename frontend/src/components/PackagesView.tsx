@@ -1,6 +1,6 @@
 import { adminFetch } from "../lib/api";
 import React, { useState, useEffect } from "react";
-import { Package } from "../server/db";
+import { Package } from "../../../backend/src/server/db";
 import { Zap, Activity, Edit2, Trash2, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAutoRefresh } from "../lib/useAutoRefresh";

@@ -13,7 +13,7 @@ import {
   Calendar,
   Clock,
 } from "lucide-react";
-import { AdminUser } from "../server/db";
+import { AdminUser, SecurityConfig } from "../../../backend/src/server/db";
 import { motion, AnimatePresence } from "motion/react";
 import { useAutoRefresh } from "../lib/useAutoRefresh";
 import { useSSE } from "../lib/useSSE";
