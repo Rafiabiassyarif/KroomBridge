@@ -200,8 +200,20 @@ adminRouter.get("/timeseries", (req: Request, res: Response) => {
 
   const totalWindowMs = cfg.count * cfg.sizeMs;
 
+  // Batasi jumlah log yang dibaca sesuai rentang — tidak perlu baca semua
+  // log sejarah untuk range pendek (5m/1h). Ini drastis mengurangi beban.
+  const LOG_LIMIT: Record<string, number> = {
+    "5m": 500,
+    "1h": 2000,
+    "24h": 5000,
+    "7d": 10000,
+    "30d": 20000,
+    "1y": 50000,
+  };
+  const logLimit = LOG_LIMIT[range] ?? 5000;
+
   // Filter logs di rentang waktu yang diminta
-  const allLogs = db.getLogs(Infinity);
+  const allLogs = db.getLogs(logLimit);
   for (const log of allLogs) {
     const ts = new Date(log.timestamp).getTime();
     const diff = now - ts;
