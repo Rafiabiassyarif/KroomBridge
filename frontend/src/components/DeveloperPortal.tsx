@@ -38,8 +38,7 @@ export default function DeveloperPortal() {
   const [activeTab, setActiveTab] = useState("auth");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   
-  const envApi = import.meta.env.VITE_API_URL || window.location.origin + "/api";
-  const baseUrl = envApi.replace(/\/api\/?$/, "");
+  const baseUrl = "https://kroombridge.kroombox.com";
 
   const copy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);

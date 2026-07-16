@@ -33,8 +33,7 @@ const CodeSnippet = ({ code, language = "bash" }: { code: string; language?: str
 };
 
 export default function DocsView() {
-  const envApi = import.meta.env.VITE_API_URL || window.location.origin + "/api";
-  const baseUrl = envApi.replace(/\/api\/?$/, "");
+  const baseUrl = "https://kroombridge.kroombox.com";
 
   const chatRequestCode = `curl -X POST ${baseUrl}/gateway/v1/chat/completions \\
   -H "Content-Type: application/json" \\
