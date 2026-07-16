@@ -39,7 +39,7 @@ interface SshHostConfig {
 }
 
 const POLL_INTERVAL_MS = parseInt(
-  process.env.GPU_SSH_POLL_INTERVAL_MS || "5000",
+  process.env.GPU_SSH_POLL_INTERVAL_MS || "60000",
 );
 
 // Timeout untuk satu kali eksekusi SSH command. Handshake awal SSH chain

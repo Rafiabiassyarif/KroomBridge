@@ -19,7 +19,7 @@ const CONFIG = {
   enabled: process.env.GPU_LOCAL_ENABLED === "true",
   hostId: process.env.GPU_LOCAL_HOST_ID || "pc-local",
   hostName: process.env.GPU_LOCAL_HOST_NAME || "PC Local",
-  intervalMs: parseInt(process.env.GPU_LOCAL_POLL_INTERVAL_MS || "3000"),
+  intervalMs: parseInt(process.env.GPU_LOCAL_POLL_INTERVAL_MS || "60000"),
 };
 
 const NVSMI_CMD =
