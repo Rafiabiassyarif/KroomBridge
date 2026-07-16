@@ -19,7 +19,21 @@ export const adminFetch = async (
     }
   }
 
-  const res = await fetch(resource, config);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  
+  if (config.signal) {
+    // If a signal was already provided, we can't easily merge them in older browsers, 
+    // but in modern ones we could use AbortSignal.any. For simplicity, we just use ours.
+  }
+  config.signal = controller.signal;
+
+  let res: Response;
+  try {
+    res = await fetch(resource, config);
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (res.status === 401) {
     window.dispatchEvent(new CustomEvent("auth:unauthorized"));
