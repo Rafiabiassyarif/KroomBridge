@@ -58,7 +58,12 @@ export default function ModelsView() {
           let price = 2.0; // Default
           const n = name.toLowerCase();
           
-          if (n.includes("claude")) { 
+          if (n.includes("qwen")) { price = 0.9; } 
+          else if (n.includes("llama")) { price = 0.75; } 
+          else if (n.includes("kimi") || n.includes("moonshot") || n.includes("minimax")) { price = 1.5; }
+          else if (n.includes("deepseek")) { price = 1.2; }
+          else if (n.includes("nemotron")) { price = 1.0; }
+          else if (n.includes("claude")) { 
             if (n.includes("opus")) price = 16.5; 
             else if (n.includes("sonnet")) price = 3.5; 
             else if (n.includes("haiku")) price = 0.5; 
@@ -74,11 +79,6 @@ export default function ModelsView() {
             else if (n.includes("pro")) price = 1.5; 
             else price = 1.0; 
           }
-          else if (n.includes("qwen")) { price = 0.9; } 
-          else if (n.includes("llama")) { price = 0.75; } 
-          else if (n.includes("kimi") || n.includes("moonshot") || n.includes("minimax")) { price = 1.5; }
-          else if (n.includes("deepseek")) { price = 1.2; }
-          else if (n.includes("nemotron")) { price = 1.0; }
 
           allModels.push({
             name,

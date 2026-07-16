@@ -345,19 +345,10 @@ gatewayRouter.use(async (req: Request, res: Response) => {
 
   if (modelStringToParse) {
     const desc = modelStringToParse.toLowerCase();
-    if (desc.includes("claude")) {
-      if (desc.includes("opus")) modelMultiplier = 5.0; // Diturunkan dari 16.5 agar tidak cepat habis
-      else if (desc.includes("sonnet")) modelMultiplier = 3.5;
-      else if (desc.includes("haiku")) modelMultiplier = 0.5;
-      else modelMultiplier = 3.5;
-    } else if (desc.includes("gpt")) {
-      if (desc.includes("mini")) modelMultiplier = 0.3;
-      else modelMultiplier = 5.5;
-    } else if (desc.includes("gemini")) {
-      if (desc.includes("flash")) modelMultiplier = 1.5;
-      else if (desc.includes("pro")) modelMultiplier = 3.0;
-      else modelMultiplier = 1.5;
-    } else if (desc.includes("qwen")) {
+    
+    // Evaluasi open-source models terlebih dahulu agar model 'distilled' 
+    // (misal: qwen3.6-35b-claude-opus-distilled) tidak tertukar harganya menjadi mahal.
+    if (desc.includes("qwen")) {
       modelMultiplier = 0.8;
     } else if (desc.includes("llama")) {
       modelMultiplier = 0.75;
@@ -367,6 +358,18 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       modelMultiplier = 1.2;
     } else if (desc.includes("nemotron")) {
       modelMultiplier = 1.0;
+    } else if (desc.includes("gemini")) {
+      if (desc.includes("flash")) modelMultiplier = 1.5;
+      else if (desc.includes("pro")) modelMultiplier = 3.0;
+      else modelMultiplier = 1.5;
+    } else if (desc.includes("claude")) {
+      if (desc.includes("opus")) modelMultiplier = 5.0; // Diturunkan dari 16.5 agar tidak cepat habis
+      else if (desc.includes("sonnet")) modelMultiplier = 3.5;
+      else if (desc.includes("haiku")) modelMultiplier = 0.5;
+      else modelMultiplier = 3.5;
+    } else if (desc.includes("gpt")) {
+      if (desc.includes("mini")) modelMultiplier = 0.3;
+      else modelMultiplier = 5.5;
     }
   }
 
