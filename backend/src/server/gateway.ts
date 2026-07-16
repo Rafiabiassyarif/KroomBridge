@@ -459,6 +459,8 @@ gatewayRouter.use(async (req: Request, res: Response) => {
 
         if (!pkg.allowOverage && estimatedPromptTokensScaled > remainingQuota) {
           db.incrementUsage(clientId, estimatedPromptTokensScaled);
+          res.setHeader("X-Tokens-In", String(estimatedPromptTokens));
+          res.setHeader("X-Tokens-Out", "0");
           logRequest(402, "Prompt melebihi sisa kuota");
           return res.status(402).json({
             error: "Prompt terlalu besar untuk sisa kuota Anda.",
@@ -484,6 +486,8 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         if (!pkg.allowOverage) {
           if (allowedCompletionTokens < 10) {
             db.incrementUsage(clientId, estimatedPromptTokensScaled);
+            res.setHeader("X-Tokens-In", String(estimatedPromptTokens));
+            res.setHeader("X-Tokens-Out", "0");
             logRequest(402, "Sisa kuota tidak cukup untuk respons");
             return res.status(402).json({
               error: "Sisa kuota Anda terlalu kecil untuk menghasilkan respons AI.",
@@ -624,13 +628,20 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         upstreamResponse.status >= 200 &&
         upstreamResponse.status < 300
       ) {
+        let inputTokens = 0;
+        let outputTokens = 0;
         let baseTokens = 0;
-        const usageMatch = fullText.match(/"total_tokens":\s*(\d+)/);
-        if (usageMatch) {
-          baseTokens = parseInt(usageMatch[1], 10);
+        const totalMatch = fullText.match(/"total_tokens":\s*(\d+)/);
+        const promptMatch = fullText.match(/"prompt_tokens":\s*(\d+)/);
+        const completionMatch = fullText.match(/"completion_tokens":\s*(\d+)/);
+        
+        if (totalMatch) {
+          baseTokens = parseInt(totalMatch[1], 10);
+          inputTokens = promptMatch ? parseInt(promptMatch[1], 10) : 0;
+          outputTokens = completionMatch ? parseInt(completionMatch[1], 10) : 0;
         } else {
-          const inputTokens = estimateTokens(processedBody);
-          const outputTokens = estimateTokens(fullText);
+          inputTokens = estimateTokens(processedBody);
+          outputTokens = estimateTokens(fullText);
           baseTokens = Math.max(1, inputTokens + outputTokens);
         }
         const tokens = Math.ceil(baseTokens * modelMultiplier);
@@ -649,12 +660,16 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         upstreamResponse.status >= 200 &&
         upstreamResponse.status < 300
       ) {
+        let inputTokens = 0;
+        let outputTokens = 0;
         let baseTokens = 0;
         if (jsonResponse.usage?.total_tokens) {
           baseTokens = jsonResponse.usage.total_tokens;
+          inputTokens = jsonResponse.usage.prompt_tokens || 0;
+          outputTokens = jsonResponse.usage.completion_tokens || 0;
         } else {
-          const inputTokens = estimateTokens(processedBody);
-          const outputTokens = estimateTokens(jsonResponse);
+          inputTokens = estimateTokens(processedBody);
+          outputTokens = estimateTokens(jsonResponse);
           baseTokens = Math.max(1, inputTokens + outputTokens);
         }
         const tokens = Math.ceil(baseTokens * modelMultiplier);
@@ -662,6 +677,8 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         db.incrementUsage(clientId, tokens);
         res.setHeader("X-Token-Multiplier", String(modelMultiplier));
         res.setHeader("X-Tokens-Charged", String(tokens));
+        res.setHeader("X-Tokens-In", String(inputTokens));
+        res.setHeader("X-Tokens-Out", String(outputTokens));
       }
 
       // ── Transform Response Body ──
@@ -695,6 +712,8 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         db.incrementUsage(clientId, tokens);
         res.setHeader("X-Token-Multiplier", String(modelMultiplier));
         res.setHeader("X-Tokens-Charged", String(tokens));
+        res.setHeader("X-Tokens-In", String(inputTokens));
+        res.setHeader("X-Tokens-Out", String(outputTokens));
       }
 
       return res

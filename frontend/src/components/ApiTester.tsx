@@ -1579,18 +1579,45 @@ export default function ApiTester() {
                     <span className="text-slate-500">Size:</span>
                     <span className="text-blue-400">{response.size}</span>
                   </div>
-                  {(response.headers?.["x-tokens-in"] || response.headers?.["X-Tokens-In"]) && (
-                    <div className="flex items-center space-x-2 border-l border-slate-700 pl-4">
-                      <div className="flex items-center space-x-1" title="Input Tokens">
-                        <span className="text-slate-500">IN:</span>
-                        <span className="text-amber-400">{response.headers["x-tokens-in"] || response.headers["X-Tokens-In"]} tk</span>
+                  {(() => {
+                    let inTk: number | undefined;
+                    let outTk: number | undefined;
+                    
+                    if (response.headers?.["x-tokens-in"] !== undefined || response.headers?.["X-Tokens-In"] !== undefined) {
+                      inTk = Number(response.headers["x-tokens-in"] || response.headers["X-Tokens-In"]);
+                      outTk = Number(response.headers["x-tokens-out"] || response.headers["X-Tokens-Out"] || 0);
+                    } else if (response.data && typeof response.data === 'object' && response.data.usage) {
+                      inTk = response.data.usage.prompt_tokens;
+                      outTk = response.data.usage.completion_tokens;
+                    } else if (response.data) {
+                      // Fallback: estimate from body lengths
+                      try {
+                        const { bodyPayload } = buildBodyPayload();
+                        const reqStr = bodyPayload ? (typeof bodyPayload === 'string' ? bodyPayload : JSON.stringify(bodyPayload)) : "";
+                        const resStr = typeof response.data === 'string' ? response.data : JSON.stringify(response.data || "");
+                        inTk = Math.ceil(reqStr.length / 4);
+                        outTk = Math.ceil(resStr.length / 4);
+                      } catch (e) {
+                        inTk = 0;
+                        outTk = 0;
+                      }
+                    }
+
+                    if (inTk === undefined) return null;
+
+                    return (
+                      <div className="flex items-center space-x-2 border-l border-slate-700 pl-4">
+                        <div className="flex items-center space-x-1" title="Input Tokens">
+                          <span className="text-slate-500">IN:</span>
+                          <span className="text-amber-400">{inTk} tk</span>
+                        </div>
+                        <div className="flex items-center space-x-1" title="Output Tokens">
+                          <span className="text-slate-500">OUT:</span>
+                          <span className="text-purple-400">{outTk} tk</span>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-1" title="Output Tokens">
-                        <span className="text-slate-500">OUT:</span>
-                        <span className="text-purple-400">{response.headers["x-tokens-out"] || response.headers["X-Tokens-Out"] || 0} tk</span>
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                   <button
                     onClick={handleCopy}
                     className="ml-2 hover:text-white transition-colors outline-none flex items-center space-x-1 bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded"
