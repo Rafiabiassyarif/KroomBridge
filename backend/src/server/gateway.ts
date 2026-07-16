@@ -92,14 +92,22 @@ export const gatewayMiddleware = (
 
   // ── 4. Verifikasi API Key atau JWT Access Token ──
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  const xApiKey = req.headers["x-api-key"] || req.headers["api-key"];
+  
+  let token = "";
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  } else if (typeof xApiKey === "string") {
+    token = xApiKey;
+  }
+
+  if (!token) {
     return res.status(401).json({
-      error: "Authorization header hilang atau format salah.",
-      hint: "Sertakan header: Authorization: Bearer <api_key_atau_token>",
+      error: "Kredensial otorisasi hilang atau format salah.",
+      hint: "Gunakan header: 'Authorization: Bearer <api_key>' ATAU 'x-api-key: <api_key>'",
     });
   }
 
-  const token = authHeader.split(" ")[1];
   let client = db.getClientBySecretKey(token);
 
   if (!client) {
