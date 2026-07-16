@@ -33,7 +33,7 @@ const CodeSnippet = ({ code, language = "bash" }: { code: string; language?: str
 };
 
 export default function DocsView() {
-  const baseUrl = "https://kroombridge.kroombox.com";
+  const baseUrl = "https://api-kroombridge.kroombox.com";
 
   const chatRequestCode = `curl -X POST ${baseUrl}/gateway/v1/chat/completions \\
   -H "Content-Type: application/json" \\
