@@ -32,6 +32,8 @@ export default function ModelsView() {
   const [syncStatus, setSyncStatus] = useState<"idle" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const fetchKromaModels = async () => {
     setIsLoading(true);
@@ -48,6 +50,7 @@ export default function ModelsView() {
       if (metaRes.ok) {
         const metaData = await metaRes.json();
         setDisabledModels(metaData.disabledModels || []);
+        setHasChanges(false);
       }
 
       const responseData = await res.json();
@@ -123,25 +126,35 @@ export default function ModelsView() {
     setSortConfig({ key, direction });
   };
 
-  const toggleModelStatus = async (modelName: string) => {
+  const toggleModelStatus = (modelName: string) => {
     const isCurrentlyDisabled = disabledModels.includes(modelName);
     const newDisabledModels = isCurrentlyDisabled
       ? disabledModels.filter((m) => m !== modelName)
       : [...disabledModels, modelName];
 
-    // Optimistic UI update
     setDisabledModels(newDisabledModels);
+    setHasChanges(true);
+  };
 
+  const saveChanges = async () => {
+    setIsSaving(true);
     try {
-      await adminFetch(`/api/admin/system/meta`, {
+      const res = await adminFetch(`/api/admin/system/meta`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ disabledModels: newDisabledModels }),
+        body: JSON.stringify({ disabledModels }),
       });
+      
+      if (!res.ok) {
+        throw new Error("Gagal menyimpan perubahan");
+      }
+      
+      setHasChanges(false);
     } catch (error) {
       console.error("Failed to update disabled models:", error);
-      // Revert on error
-      setDisabledModels(disabledModels);
+      alert("Gagal menyimpan perubahan. Silakan coba lagi.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -228,6 +241,20 @@ export default function ModelsView() {
             </p>
           </div>
           <div className="flex items-center space-x-3">
+            {hasChanges && (
+              <button
+                onClick={saveChanges}
+                disabled={isSaving}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-sm disabled:opacity-50 transition-colors shrink-0"
+              >
+                {isSaving ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Check className="w-4 h-4" />
+                )}
+                <span>{isSaving ? "Menyimpan..." : "Simpan Perubahan"}</span>
+              </button>
+            )}
             <button
               onClick={fetchKromaModels}
               disabled={isLoading || syncStatus === "success"}
