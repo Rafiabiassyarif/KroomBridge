@@ -858,6 +858,9 @@ export default function DashboardView({
   const [endpointStatusFilter, setEndpointStatusFilter] = useState<
     "all" | "Healthy" | "Warning" | "Degraded"
   >("all");
+  const [isClearingLogs, setIsClearingLogs] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearLogsMsg, setClearLogsMsg] = useState<string | null>(null);
 
   const intervalRef = useRef<number | null>(null);
   const sseRef = useRef<EventSource | null>(null);
@@ -875,6 +878,28 @@ export default function DashboardView({
   useEffect(() => {
     localStorage.setItem("kb_dash_range", timeRange);
   }, [timeRange]);
+
+  const handleClearLogs = async (daysOld?: number) => {
+    setIsClearingLogs(true);
+    try {
+      const url = daysOld
+        ? `/api/admin/logs/old?days=${daysOld}`
+        : "/api/admin/logs";
+      const res = await adminFetch(url, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        setClearLogsMsg(data.message);
+        fetchStats();
+        setTimeout(() => setClearLogsMsg(null), 4000);
+      }
+    } catch {
+      setClearLogsMsg("Gagal menghapus log.");
+      setTimeout(() => setClearLogsMsg(null), 3000);
+    } finally {
+      setIsClearingLogs(false);
+      setShowClearConfirm(false);
+    }
+  };
 
   const fetchStats = async () => {
     setIsRefreshing(true);
@@ -1480,8 +1505,74 @@ export default function DashboardView({
                 className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`}
               />
             </button>
+
+            {/* Tombol Reset Log */}
+            <div className="relative">
+              <button
+                onClick={() => setShowClearConfirm((v) => !v)}
+                title="Reset Log Activity"
+                className="w-9 h-9 flex items-center justify-center bg-rose-500/10 backdrop-blur-xl border border-rose-500/30 rounded-xl text-rose-500 dark:text-rose-400 hover:bg-rose-500/20 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+
+              <AnimatePresence>
+                {showClearConfirm && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-full mt-2 w-[220px] bg-white/95 dark:bg-zinc-950/95 backdrop-blur-2xl border border-zinc-200/60 dark:border-white/[0.08] rounded-xl shadow-xl shadow-black/10 overflow-hidden z-[200] p-3"
+                  >
+                    <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-200 mb-2">Reset Log Activity</p>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-3">Pilih log mana yang ingin dihapus:</p>
+                    <div className="space-y-1.5">
+                      <button
+                        onClick={() => handleClearLogs(7)}
+                        disabled={isClearingLogs}
+                        className="w-full text-left px-3 py-2 text-xs rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/20 transition-colors disabled:opacity-50"
+                      >
+                        🗂 Hapus log &gt; 7 hari
+                      </button>
+                      <button
+                        onClick={() => handleClearLogs(30)}
+                        disabled={isClearingLogs}
+                        className="w-full text-left px-3 py-2 text-xs rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-700 dark:text-orange-300 border border-orange-500/20 transition-colors disabled:opacity-50"
+                      >
+                        🗂 Hapus log &gt; 30 hari
+                      </button>
+                      <button
+                        onClick={() => handleClearLogs()}
+                        disabled={isClearingLogs}
+                        className="w-full text-left px-3 py-2 text-xs rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-400 border border-rose-500/20 transition-colors disabled:opacity-50"
+                      >
+                        🗑 Hapus SEMUA log
+                      </button>
+                    </div>
+                    {isClearingLogs && (
+                      <p className="text-[11px] text-zinc-400 mt-2 text-center">Menghapus...</p>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </motion.div>
+
+        {/* Toast sukses clear log */}
+        <AnimatePresence>
+          {clearLogsMsg && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="fixed top-4 right-4 z-[300] bg-emerald-500 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-500/30"
+            >
+              ✅ {clearLogsMsg}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Pipeline Hero */}
         <motion.div variants={itemVariants} className="relative">

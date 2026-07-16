@@ -643,6 +643,18 @@ export class DatabaseCache {
     if (pool) pool.query("TRUNCATE TABLE logs").catch(console.error);
     return c;
   }
+  clearOldLogs(days: number = 30) {
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const before = this.data.logs.length;
+    this.data.logs = this.data.logs.filter((l) => l.timestamp >= cutoff);
+    const deleted = before - this.data.logs.length;
+    if (pool)
+      pool
+        .query("DELETE FROM logs WHERE timestamp < ?", [cutoff])
+        .catch(console.error);
+    return deleted;
+  }
+
   getLogsByClient(clientId: string, limit: number = 50) {
     return this.data.logs
       .filter((l) => l.clientId === clientId)

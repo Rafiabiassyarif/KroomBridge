@@ -94,6 +94,39 @@ adminRouter.get("/dashboard-stats", (req: Request, res: Response) => {
 });
 
 // ============================================================
+// LOGS — Clear activity log
+// DELETE /api/admin/logs        → hapus semua log
+// DELETE /api/admin/logs/old    → hapus log lebih dari ?days=N hari (default 30)
+// ============================================================
+adminRouter.delete("/logs", async (req: Request, res: Response) => {
+  try {
+    const count = db.clearLogs();
+    res.json({
+      success: true,
+      message: `${count} log activity berhasil dihapus.`,
+      deleted: count,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: "Gagal menghapus log.", details: err.message });
+  }
+});
+
+adminRouter.delete("/logs/old", async (req: Request, res: Response) => {
+  try {
+    const days = parseInt(String(req.query.days || "30"));
+    const count = db.clearOldLogs(days);
+    res.json({
+      success: true,
+      message: `${count} log lebih dari ${days} hari berhasil dihapus.`,
+      deleted: count,
+      olderThanDays: days,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: "Gagal menghapus log lama.", details: err.message });
+  }
+});
+
+// ============================================================
 // PROVIDERS LIST (KROMA AI LIVE SYNC)
 // GET /api/admin/providers
 // ============================================================
