@@ -79,9 +79,6 @@ export default function LoginView({ onLogin }: LoginViewProps) {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2 ml-0.5">
-                  Email
-                </label>
                 <div className="relative group">
                   <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-violet-500 transition-colors" />
                   <input
@@ -96,9 +93,6 @@ export default function LoginView({ onLogin }: LoginViewProps) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2 ml-0.5">
-                  Password
-                </label>
                 <div className="relative group">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-violet-500 transition-colors" />
                   <input

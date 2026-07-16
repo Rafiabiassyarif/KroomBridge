@@ -1,3 +1,5 @@
+const API_URL = import.meta.env.VITE_API_URL || "";
+
 export const adminFetch = async (
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -5,10 +7,14 @@ export const adminFetch = async (
   let resource = input;
   let config = init || {};
 
+  if (typeof resource === "string" && resource.startsWith("/api/")) {
+    resource = `${API_URL}${resource.substring(4)}`;
+  }
+
   if (
-    typeof resource === "string" &&
-    resource.startsWith("/api/admin") &&
-    resource !== "/api/admin/login"
+    typeof input === "string" &&
+    input.startsWith("/api/admin") &&
+    input !== "/api/admin/login"
   ) {
     const token = sessionStorage.getItem("kroombridge_admin_token");
     if (token) {

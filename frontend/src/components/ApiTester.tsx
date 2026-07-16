@@ -32,6 +32,8 @@ import EnvironmentsModal, { Environment } from "./ApiTester/EnvironmentsModal";
 import CodeSnippetsModal from "./ApiTester/CodeSnippetsModal";
 import JsonTreeViewer from "./ApiTester/JsonTreeViewer";
 
+const API_URL = import.meta.env.VITE_API_URL || "";
+
 type KeyValue = { key: string; value: string; active: boolean };
 
 type ProxyResponse = {
@@ -358,7 +360,7 @@ export default function ApiTester() {
 
   const loadHistory = async () => {
     try {
-      const res = await fetch("/api/proxy/history");
+      const res = await fetch(`${API_URL}/proxy/history`);
       const data = await res.json();
       setHistory(Array.isArray(data) ? data : []);
     } catch (e) {
@@ -613,7 +615,7 @@ export default function ApiTester() {
       abortControllerRef.current = new AbortController();
 
       const startTime = Date.now();
-      const res = await fetch("/api/proxy", {
+      const res = await fetch(`${API_URL}/proxy`, {
         method: "POST",
         headers: postHeaders,
         body: JSON.stringify({
