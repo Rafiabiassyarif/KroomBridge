@@ -1579,6 +1579,18 @@ export default function ApiTester() {
                     <span className="text-slate-500">Size:</span>
                     <span className="text-blue-400">{response.size}</span>
                   </div>
+                  {(response.headers?.["x-tokens-in"] || response.headers?.["X-Tokens-In"]) && (
+                    <div className="flex items-center space-x-2 border-l border-slate-700 pl-4">
+                      <div className="flex items-center space-x-1" title="Input Tokens">
+                        <span className="text-slate-500">IN:</span>
+                        <span className="text-amber-400">{response.headers["x-tokens-in"] || response.headers["X-Tokens-In"]} tk</span>
+                      </div>
+                      <div className="flex items-center space-x-1" title="Output Tokens">
+                        <span className="text-slate-500">OUT:</span>
+                        <span className="text-purple-400">{response.headers["x-tokens-out"] || response.headers["X-Tokens-Out"] || 0} tk</span>
+                      </div>
+                    </div>
+                  )}
                   <button
                     onClick={handleCopy}
                     className="ml-2 hover:text-white transition-colors outline-none flex items-center space-x-1 bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded"
