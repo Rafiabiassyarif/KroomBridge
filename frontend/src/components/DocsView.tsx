@@ -33,23 +33,12 @@ const CodeSnippet = ({ code, language = "bash" }: { code: string; language?: str
 };
 
 export default function DocsView() {
-  const baseUrl = "https://kroombridge.kii.lat";
-
-  const tokenRequestCode = `curl -X POST ${baseUrl}/api/auth/token \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "clientId": "ID_KLIEN_ANDA",
-    "clientSecret": "SECRET_KEY_ANDA"
-  }'`;
-
-  const tokenResponseCode = `{
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5...",
-  "expiresIn": "never"
-}`;
+  const envApi = import.meta.env.VITE_API_URL || window.location.origin + "/api";
+  const baseUrl = envApi.replace(/\/api\/?$/, "");
 
   const chatRequestCode = `curl -X POST ${baseUrl}/gateway/v1/chat/completions \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer <ACCESS_TOKEN_JWT>" \\
+  -H "Authorization: Bearer <SECRET_KEY_ANDA>" \\
   -d '{
     "model": "pc-putih/lmstudio/qwen3.6-27b-uncensored-hauhaucs-aggressive",
     "messages": [
@@ -70,7 +59,7 @@ export default function DocsView() {
 # Inisialisasi client OpenAI dengan Base URL KroomBridge
 client = openai.OpenAI(
     base_url="${baseUrl}/gateway/v1",
-    api_key="<ACCESS_TOKEN_JWT>"  # Token yang didapat dari langkah 2
+    api_key="<SECRET_KEY_ANDA>"  # Masukkan Secret Key Klien di sini
 )
 
 # Request Chat Completion
@@ -98,7 +87,7 @@ print(response.choices[0].message.content)`;
         <div>
           <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">KroomBridge API Documentation</h2>
           <p className="text-[15px] text-slate-600 dark:text-slate-400 mt-1.5 font-medium leading-relaxed">
-            Panduan lengkap integrasi API Gateway. Anda dapat membagikan halaman ini atau mengirimkan instruksi di bawah kepada klien Anda agar mereka bisa langsung terhubung.
+            Panduan lengkap integrasi API Gateway. Anda dapat membagikan halaman ini atau mengirimkan instruksi di bawah kepada klien Anda agar mereka bisa langsung terhubung menggunakan API Key.
           </p>
         </div>
       </motion.div>
@@ -115,52 +104,34 @@ print(response.choices[0].message.content)`;
             <div className="p-2 bg-amber-500/10 text-amber-500 rounded-lg">
               <Key className="w-5 h-5" />
             </div>
-            1. Sistem Keamanan (Token-Based)
+            1. Sistem Keamanan (API Key)
           </h3>
           <p className="text-slate-600 dark:text-slate-300 text-[15px] leading-relaxed mb-6">
-            KroomBridge dirancang dengan keamanan tingkat tinggi bergaya OAuth2. Klien <strong>dilarang keras</strong> mengirimkan <em>Secret Key</em> secara langsung ke endpoint AI demi menghindari kebocoran data. Sebagai gantinya, klien harus melakukan proses otentikasi dua langkah:
+            KroomBridge menggunakan sistem keamanan berbasis <strong>API Key</strong> yang 100% kompatibel dengan aplikasi pihak ketiga mana pun (seperti OpenAI). 
+            Klien Anda hanya perlu menggunakan <strong>Secret Key</strong> mereka secara langsung sebagai otorisasi.
           </p>
           <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/10 border border-amber-200 dark:border-amber-500/20 rounded-xl p-5">
             <p className="font-bold text-amber-900 dark:text-amber-400 mb-3 flex items-center gap-2">
-              Alur Integrasi Wajib:
+              Cara Mendapatkan API Key:
             </p>
             <ol className="list-decimal pl-5 space-y-2 text-[14px] text-amber-800 dark:text-amber-200/90 font-medium">
-              <li>Tukarkan <strong className="text-amber-900 dark:text-amber-300">ID Klien</strong> & <strong className="text-amber-900 dark:text-amber-300">Secret Key</strong> untuk mendapatkan tiket akses berupa <strong>Access Token (JWT)</strong>.</li>
-              <li>Gunakan <strong>Access Token</strong> tersebut sebagai kredensial <em>Bearer</em> utama untuk semua request ke endpoint AI.</li>
+              <li>Masuk ke menu <strong>Clients</strong> di Dashboard KroomBridge.</li>
+              <li>Salin nilai <strong className="text-amber-900 dark:text-amber-300">Secret Key</strong> milik klien yang bersangkutan (misal: <code>sk_b878...</code>).</li>
+              <li>Berikan Secret Key tersebut kepada Klien untuk digunakan sebagai kredensial <em>Bearer Token</em> mereka.</li>
             </ol>
           </div>
         </div>
 
-        {/* Section 2: Mendapatkan Token */}
-        <div className="p-6 md:p-8 bg-white dark:bg-[#11141A] rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all hover:shadow-md">
-          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3 mb-5">
-            <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg">
-              <Server className="w-5 h-5" />
-            </div>
-            2. Mendapatkan Access Token (JWT)
-          </h3>
-          <p className="text-slate-600 dark:text-slate-300 text-[15px] leading-relaxed mb-4">
-            Lakukan HTTP POST ke endpoint <code>/api/auth/token</code> menggunakan kredensial yang didapatkan dari menu <strong>Clients</strong> di Dashboard. Proses ini cukup dilakukan satu kali jika token diatur menjadi <em>never expire</em>.
-          </p>
-          
-          <CodeSnippet code={tokenRequestCode} language="bash" />
-          
-          <p className="text-slate-600 dark:text-slate-300 text-[15px] leading-relaxed mt-6 mb-2 font-medium">
-            Contoh Response Sukses:
-          </p>
-          <CodeSnippet code={tokenResponseCode} language="json" />
-        </div>
-
-        {/* Section 3: Menggunakan AI */}
+        {/* Section 2: Menggunakan AI */}
         <div className="p-6 md:p-8 bg-white dark:bg-[#11141A] rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all hover:shadow-md">
           <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3 mb-5">
             <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg">
               <Terminal className="w-5 h-5" />
             </div>
-            3. Contoh Integrasi (cURL & Python)
+            2. Contoh Integrasi (cURL & Python)
           </h3>
           <p className="text-slate-600 dark:text-slate-300 text-[15px] leading-relaxed mb-4">
-            Gunakan <code>accessToken</code> dari langkah 2 untuk berinteraksi dengan AI. Struktur request dan respons KroomBridge dirancang <strong>100% kompatibel</strong> dengan API OpenAI, sehingga Anda bisa menggunakan pustaka bawaan <em>OpenAI SDK</em>.
+            Struktur request dan respons KroomBridge dirancang <strong>100% kompatibel</strong> dengan API OpenAI, sehingga Anda bisa langsung menggunakan pustaka bawaan <em>OpenAI SDK</em> dengan memasukkan Secret Key ke dalam kolom <code>api_key</code>.
           </p>
 
           <div className="mt-8">
@@ -180,7 +151,7 @@ print(response.choices[0].message.content)`;
             <ol className="list-decimal pl-5 space-y-2 text-[14px] text-slate-700 dark:text-slate-300">
               <li>Buka aplikasi Postman, buat Request baru lalu ubah method menjadi <strong>POST</strong>.</li>
               <li>Masukkan URL: <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-sky-600 dark:text-sky-400">{baseUrl}/gateway/v1/chat/completions</code></li>
-              <li>Buka tab <strong>Headers</strong>, tambahkan Key: <code>Authorization</code> dengan Value: <code>Bearer &lt;TOKEN_JWT_ANDA&gt;</code>.</li>
+              <li>Buka tab <strong>Headers</strong>, tambahkan Key: <code>Authorization</code> dengan Value: <code>Bearer &lt;SECRET_KEY_ANDA&gt;</code>.</li>
               <li>Buka tab <strong>Body</strong>, pilih opsi <strong>raw</strong> lalu ganti text menjadi <strong>JSON</strong>.</li>
               <li>Paste JSON payload berikut ke dalamnya, lalu klik <strong>Send</strong>:</li>
             </ol>
@@ -203,7 +174,7 @@ print(response.choices[0].message.content)`;
           </div>
         </div>
 
-        {/* Section 4: Integrasi di Aplikasi Pihak Ketiga */}
+        {/* Section 3: Integrasi di Aplikasi Pihak Ketiga */}
         <div className="p-6 md:p-8 bg-gradient-to-br from-sky-50 to-blue-50 dark:from-[#11141A] dark:to-sky-950/10 rounded-2xl border border-sky-100 dark:border-sky-900/30 shadow-sm relative overflow-hidden">
           
           <div className="absolute right-0 top-0 opacity-10 pointer-events-none -mr-10 -mt-10">
@@ -214,7 +185,7 @@ print(response.choices[0].message.content)`;
             <div className="p-2 bg-sky-500 text-white rounded-lg shadow-md shadow-sky-500/20">
               <Code className="w-5 h-5" />
             </div>
-            4. Pemakaian di Aplikasi UI Pihak Ketiga
+            3. Pemakaian di Aplikasi UI Pihak Ketiga
           </h3>
           <p className="text-slate-700 dark:text-slate-300 text-[15px] leading-relaxed mb-6 relative z-10">
             Jika Klien Anda tidak memprogram aplikasinya sendiri, melainkan menggunakan antarmuka AI (Chat UI) yang sudah jadi, KroomBridge <strong>sangat mendukung</strong> integrasi tersebut secara *plug-and-play*.
@@ -235,13 +206,6 @@ print(response.choices[0].message.content)`;
           <ul className="space-y-5 relative z-10">
             <li className="flex gap-4 items-start">
               <span className="flex items-center justify-center w-7 h-7 rounded-full bg-sky-200 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 font-bold text-sm shrink-0 shadow-sm border border-sky-300/50 dark:border-sky-700/50">1</span>
-              <div>
-                <p className="text-slate-700 dark:text-slate-300 text-[14.5px] font-medium">Dapatkan JWT Access Token</p>
-                <p className="text-slate-600 dark:text-slate-400 text-[13.5px] mt-1">Gunakan cURL/Postman di Langkah 2 untuk mendapatkan token secara manual satu kali saja.</p>
-              </div>
-            </li>
-            <li className="flex gap-4 items-start">
-              <span className="flex items-center justify-center w-7 h-7 rounded-full bg-sky-200 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 font-bold text-sm shrink-0 shadow-sm border border-sky-300/50 dark:border-sky-700/50">2</span>
               <div className="w-full">
                 <p className="text-slate-700 dark:text-slate-300 text-[14.5px] font-medium">Ubah Pengaturan OpenAI Base URL</p>
                 <p className="text-slate-600 dark:text-slate-400 text-[13.5px] mt-1">Di dalam setting aplikasi pihak ketiga, ubah URL bawaan OpenAI (Custom Endpoint) menjadi:</p>
@@ -253,10 +217,10 @@ print(response.choices[0].message.content)`;
               </div>
             </li>
             <li className="flex gap-4 items-start">
-              <span className="flex items-center justify-center w-7 h-7 rounded-full bg-sky-200 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 font-bold text-sm shrink-0 shadow-sm border border-sky-300/50 dark:border-sky-700/50">3</span>
+              <span className="flex items-center justify-center w-7 h-7 rounded-full bg-sky-200 dark:bg-sky-500/20 text-sky-700 dark:text-sky-400 font-bold text-sm shrink-0 shadow-sm border border-sky-300/50 dark:border-sky-700/50">2</span>
               <div>
                 <p className="text-slate-700 dark:text-slate-300 text-[14.5px] font-medium">Masukkan API Key</p>
-                <p className="text-slate-600 dark:text-slate-400 text-[13.5px] mt-1">Tempelkan <strong>JWT Access Token</strong> dari langkah pertama ke dalam kolom pengisian OpenAI API Key.</p>
+                <p className="text-slate-600 dark:text-slate-400 text-[13.5px] mt-1">Tempelkan <strong>Secret Key</strong> dari dashboard ke dalam kolom pengisian OpenAI API Key.</p>
               </div>
             </li>
             <li className="flex gap-4 items-center">

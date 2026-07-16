@@ -25,14 +25,12 @@ import {
 import { cn } from "../lib/utils";
 import { useAutoRefresh } from "../lib/useAutoRefresh";
 import { useSSE } from "../lib/useSSE";
-import { adminFetch } from "../lib/api";
+import { adminFetch, getFullApiUrl } from "../lib/api";
 
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
 import EnvironmentsModal, { Environment } from "./ApiTester/EnvironmentsModal";
 import CodeSnippetsModal from "./ApiTester/CodeSnippetsModal";
 import JsonTreeViewer from "./ApiTester/JsonTreeViewer";
-
-const API_URL = import.meta.env.VITE_API_URL || "";
 
 type KeyValue = { key: string; value: string; active: boolean };
 
@@ -360,7 +358,7 @@ export default function ApiTester() {
 
   const loadHistory = async () => {
     try {
-      const res = await fetch(`${API_URL}/proxy/history`);
+      const res = await fetch(getFullApiUrl("/api/proxy/history"));
       const data = await res.json();
       setHistory(Array.isArray(data) ? data : []);
     } catch (e) {
@@ -615,7 +613,7 @@ export default function ApiTester() {
       abortControllerRef.current = new AbortController();
 
       const startTime = Date.now();
-      const res = await fetch(`${API_URL}/proxy`, {
+      const res = await fetch(getFullApiUrl("/api/proxy"), {
         method: "POST",
         headers: postHeaders,
         body: JSON.stringify({

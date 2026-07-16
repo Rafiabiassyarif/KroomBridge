@@ -1,5 +1,11 @@
 const API_URL = import.meta.env.VITE_API_URL || "";
 
+export const getFullApiUrl = (path: string) => {
+  if (!API_URL || !path.startsWith("/api/")) return path;
+  const base = API_URL.replace(/\/$/, "");
+  return `${base}${path.substring(4)}`;
+};
+
 export const adminFetch = async (
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -7,8 +13,8 @@ export const adminFetch = async (
   let resource = input;
   let config = init || {};
 
-  if (typeof resource === "string" && resource.startsWith("/api/")) {
-    resource = `${API_URL}${resource.substring(4)}`;
+  if (typeof resource === "string") {
+    resource = getFullApiUrl(resource);
   }
 
   if (

@@ -37,6 +37,9 @@ const contentVariants = {
 export default function DeveloperPortal() {
   const [activeTab, setActiveTab] = useState("auth");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  
+  const envApi = import.meta.env.VITE_API_URL || window.location.origin + "/api";
+  const baseUrl = envApi.replace(/\/api\/?$/, "");
 
   const copy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -171,63 +174,40 @@ export default function DeveloperPortal() {
               >
                 <div>
                   <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                    Autentikasi
+                    Autentikasi API Key
                   </h3>
                   <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed mt-3 max-w-2xl">
-                    KroomBridge API Gateway menggunakan JWT (JSON Web Tokens)
-                    untuk autentikasi. Klien harus menukarkan kredensial{" "}
-                    <code className="font-mono text-xs font-bold bg-slate-100 dark:bg-slate-800 text-rose-500 dark:text-rose-400 px-1.5 py-0.5 rounded-md">
-                      clientId
-                    </code>{" "}
-                    dan{" "}
-                    <code className="font-mono text-xs font-bold bg-slate-100 dark:bg-slate-800 text-rose-500 dark:text-rose-400 px-1.5 py-0.5 rounded-md">
-                      clientSecret
-                    </code>{" "}
-                    untuk mendapatkan access token.
+                    KroomBridge API Gateway menggunakan otorisasi <strong>API Key</strong> (berbasis Secret Key). Klien dapat langsung menggunakan <code className="font-mono text-xs font-bold bg-slate-100 dark:bg-slate-800 text-rose-500 dark:text-rose-400 px-1.5 py-0.5 rounded-md">Secret Key</code> mereka pada HTTP header <code className="font-mono text-xs font-bold bg-slate-100 dark:bg-slate-800 text-emerald-500 dark:text-emerald-400 px-1.5 py-0.5 rounded-md">Authorization: Bearer</code> tanpa perlu menukarkan JWT.
                   </p>
                 </div>
 
-                <div className="border border-blue-100 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-900/20 p-5 rounded-2xl">
+                <div className="border border-emerald-100 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-900/20 p-5 rounded-2xl">
                   <h4 className="font-bold text-slate-800 dark:text-slate-100 flex items-center space-x-3">
                     <span className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm">
-                      POST
+                      HEADER
                     </span>
-                    <span className="font-mono text-sm">/api/auth/token</span>
+                    <span className="font-mono text-sm">Authorization: Bearer &lt;SECRET_KEY&gt;</span>
                   </h4>
                   <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 font-medium">
-                    Tukar kredensial dengan access dan refresh token untuk mulai
-                    memanggil API.
+                    Sertakan header ini pada setiap permintaan (request) API yang Anda lakukan ke server KroomBridge.
                   </p>
                 </div>
 
-                <div className="grid lg:grid-cols-2 gap-6 mt-8">
+                <div className="grid gap-6 mt-8">
                   <div>
                     <h5 className="font-bold text-sm text-slate-700 dark:text-slate-300 uppercase tracking-widest pl-1">
-                      Permintaan (Request)
+                      Contoh Request (Semua Endpoint)
                     </h5>
                     <CodeBlock
                       id="auth-req"
                       code={`curl -X POST \\
-  https://api.kroombridge.io/api/auth/token \\
+  ${baseUrl}/gateway/v1/chat/completions \\
   -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer sk_b878621d573c..." \\
   -d '{
-    "clientId": "your_client_id",
-    "clientSecret": "your_secret_key"
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Halo!"}]
   }'`}
-                    />
-                  </div>
-
-                  <div>
-                    <h5 className="font-bold text-sm text-slate-700 dark:text-slate-300 uppercase tracking-widest pl-1">
-                      Balasan (Response)
-                    </h5>
-                    <CodeBlock
-                      id="auth-res"
-                      code={`{
-  "access_token": "eyJhbGciOiJIUzI1...",
-  "refresh_token": "def5020059e...",
-  "expires_in": 900
-}`}
                     />
                   </div>
                 </div>
@@ -345,8 +325,8 @@ export default function DeveloperPortal() {
                   <CodeBlock
                     id="wa-req"
                     code={`curl -X POST \\
-  https://api.kroombridge.io/gateway/wa/send \\
-  -H "Authorization: Bearer <your_access_token>" \\
+  ${baseUrl}/gateway/wa/send \\
+  -H "Authorization: Bearer <SECRET_KEY_ANDA>" \\
   -H "Content-Type: application/json" \\
   -d '{
     "to": "+6281234567890",

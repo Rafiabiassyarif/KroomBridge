@@ -90,51 +90,64 @@ export const gatewayMiddleware = (
     }
   }
 
-  // ── 4. Verifikasi JWT Access Token ──
+  // ── 4. Verifikasi API Key atau JWT Access Token ──
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({
       error: "Authorization header hilang atau format salah.",
-      hint: "Sertakan header: Authorization: Bearer <access_token>",
+      hint: "Sertakan header: Authorization: Bearer <api_key_atau_token>",
     });
   }
 
   const token = authHeader.split(" ")[1];
+  let client = db.getClientBySecretKey(token);
 
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
-    const clientId = decoded.clientId;
-
-    const client = db.getClient(clientId);
-    if (!client) {
-      return res
-        .status(403)
-        .json({ error: "Klien tidak ditemukan dalam sistem" });
+  if (!client) {
+    // Fallback: coba verifikasi sebagai JWT (Backward Compatibility)
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as any;
+      client = db.getClient(decoded.clientId);
+      
+      if (client) {
+        // Reject token kalau secret key udah di-rotasi setelah token issued.
+        const currentKeyVersion = client.keyVersion ?? 1;
+        if ((decoded.keyVersion ?? 1) < currentKeyVersion) {
+          return res.status(401).json({
+            error: "Access token sudah dicabut karena Secret Key di-rotasi.",
+            hint: "Gunakan API Key Anda secara langsung.",
+          });
+        }
+      }
+    } catch (err: any) {
+      if (err.name === "TokenExpiredError") {
+        return res.status(401).json({
+          error: "Access token JWT sudah kedaluwarsa.",
+          hint: "Gunakan API Key Anda secara langsung (tanpa perlu JWT).",
+        });
+      }
+      return res.status(401).json({ error: "API Key atau Token tidak valid" });
     }
-    if (!client.isActive) {
-      return res.status(403).json({
-        error: "Akun klien Anda ditangguhkan. Hubungi admin untuk bantuan.",
-      });
-    }
+  }
 
-    // Reject token kalau secret key udah di-rotasi setelah token issued.
-    // Klien harus login ulang untuk dapat access token baru.
-    const currentKeyVersion = client.keyVersion ?? 1;
-    if ((decoded.keyVersion ?? 1) < currentKeyVersion) {
-      return res.status(401).json({
-        error: "Access token sudah dicabut karena Secret Key di-rotasi.",
-        hint: "Login ulang dengan Secret Key baru via POST /api/auth/token.",
-      });
-    }
+  if (!client) {
+    return res.status(403).json({ error: "Klien tidak ditemukan dalam sistem." });
+  }
 
-    const pkg = db.getPackage(client.packageId);
-    if (!pkg) {
-      return res
-        .status(500)
-        .json({ error: "Paket langganan klien tidak valid. Hubungi admin." });
-    }
+  if (!client.isActive) {
+    return res.status(403).json({
+      error: "Akun klien Anda ditangguhkan. Hubungi admin untuk bantuan.",
+    });
+  }
 
-    // ── 5. Cek Kuota Bulanan ──
+  const clientId = client.id;
+  const pkg = db.getPackage(client.packageId);
+  if (!pkg) {
+    return res
+      .status(500)
+      .json({ error: "Paket langganan klien tidak valid. Hubungi admin." });
+  }
+
+  // ── 5. Cek Kuota Bulanan ──
     const activeQuota =
       client.customQuota != null ? client.customQuota : pkg.monthlyQuota;
     if (client.usageThisMonth >= activeQuota) {
@@ -230,15 +243,6 @@ export const gatewayMiddleware = (
     (req as any).kroomboxPackage = pkg;
 
     next();
-  } catch (err: any) {
-    if (err.name === "TokenExpiredError") {
-      return res.status(401).json({
-        error: "Access token sudah kedaluwarsa.",
-        hint: "Gunakan refresh token untuk mendapatkan access token baru.",
-      });
-    }
-    return res.status(401).json({ error: "Access token tidak valid" });
-  }
 };
 
 // ============================================================
