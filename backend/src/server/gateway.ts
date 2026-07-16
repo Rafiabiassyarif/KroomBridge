@@ -641,7 +641,8 @@ gatewayRouter.use(async (req: Request, res: Response) => {
           outputTokens = completionMatch ? parseInt(completionMatch[1], 10) : 0;
         } else {
           inputTokens = estimateTokens(processedBody);
-          outputTokens = estimateTokens(fullText);
+          const finalOutput = (aggregatedContent || aggregatedReasoning) ? (aggregatedContent + aggregatedReasoning) : fullText;
+          outputTokens = estimateTokens(finalOutput);
           baseTokens = Math.max(1, inputTokens + outputTokens);
         }
         const tokens = Math.ceil(baseTokens * modelMultiplier);

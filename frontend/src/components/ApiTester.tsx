@@ -1594,7 +1594,23 @@ export default function ApiTester() {
                       try {
                         const { bodyPayload } = buildBodyPayload();
                         const reqStr = bodyPayload ? (typeof bodyPayload === 'string' ? bodyPayload : JSON.stringify(bodyPayload)) : "";
-                        const resStr = typeof response.data === 'string' ? response.data : JSON.stringify(response.data || "");
+                        
+                        let resStr = "";
+                        if (typeof response.data === 'string' && response.data.includes("data: {")) {
+                          const lines = response.data.split("\n");
+                          for (const line of lines) {
+                            if (line.startsWith("data: ") && line !== "data: [DONE]") {
+                              try {
+                                const parsed = JSON.parse(line.slice(6));
+                                const delta = parsed.choices?.[0]?.delta;
+                                resStr += (delta?.content || "") + (delta?.reasoning_content || "");
+                              } catch(e) {}
+                            }
+                          }
+                        } else {
+                          resStr = typeof response.data === 'string' ? response.data : JSON.stringify(response.data || "");
+                        }
+
                         inTk = Math.ceil(reqStr.length / 4);
                         outTk = Math.ceil(resStr.length / 4);
                       } catch (e) {
