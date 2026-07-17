@@ -149,7 +149,7 @@ print(response.choices[0].message.content)`;
             </h4>
             <ol className="list-decimal pl-5 space-y-2 text-[14px] text-slate-700 dark:text-slate-300">
               <li>Buka aplikasi Postman, buat Request baru lalu ubah method menjadi <strong>POST</strong>.</li>
-              <li>Masukkan URL: <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-sky-600 dark:text-sky-400">{baseUrl}/gateway/v1/chat/completions</code></li>
+              <li>Masukkan URL: <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-sky-600 dark:text-sky-400">{baseUrl}/gateway/kroma/v1/chat/completions</code></li>
               <li>Buka tab <strong>Headers</strong>, tambahkan Key: <code>Authorization</code> dengan Value: <code>Bearer &lt;API_KEY_ANDA&gt;</code>.</li>
               <li>Buka tab <strong>Body</strong>, pilih opsi <strong>raw</strong> lalu ganti text menjadi <strong>JSON</strong>.</li>
               <li>Paste JSON payload berikut ke dalamnya, lalu klik <strong>Send</strong>:</li>
@@ -217,7 +217,7 @@ print(response.choices[0].message.content)`;
                 <p className="text-slate-600 dark:text-slate-400 text-[13.5px] mt-1">Hapus URL bawaan OpenAI (seperti <code>https://api.openai.com/v1</code>) dan ganti menjadi Base URL KroomBridge Anda:</p>
                 <div className="mt-2.5 bg-white dark:bg-[#0B0E14] px-4 py-2.5 rounded-lg border border-sky-200 dark:border-sky-800/60 shadow-inner flex items-center justify-between group">
                   <code className="text-sky-600 dark:text-sky-400 font-mono text-[14px] select-all break-all">
-                    {baseUrl}/gateway/v1
+                    {baseUrl}/gateway/kroma/v1
                   </code>
                 </div>
               </div>
