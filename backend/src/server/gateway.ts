@@ -671,8 +671,6 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     }
 
     // ── Restore Original Model Prefix for Kroma AI ──
-    // ── Restore Original Model Prefix for Kroma AI ──
-    console.log("[Gateway] Checking model map for:", matchedRoute.upstreamUrl, KROMA_API_URL);
     if (
       matchedRoute.upstreamUrl.startsWith(KROMA_API_URL) &&
       typeof processedBody === "object" &&
@@ -681,8 +679,6 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     ) {
       const requestModel = processedBody.model.split("/").pop() || processedBody.model;
       const kromaMap = await getKromaModelsMap(kromaApiKey || "", KROMA_API_URL);
-      console.log("[Gateway] requestModel:", requestModel);
-      console.log("[Gateway] mapped to:", kromaMap[requestModel]);
       if (kromaMap[requestModel]) {
         processedBody.model = kromaMap[requestModel];
       }

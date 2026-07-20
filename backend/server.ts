@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 
 import path from "path";
@@ -167,7 +167,7 @@ async function startServer() {
 
   // ─── Request Logger (dev only) ────────────────────────────
   if (isDev) {
-    app.use((req, res, next) => {
+    app.use((req: Request, res: Response, next: NextFunction) => {
       // Daftar path yang akan disembunyikan log-nya agar terminal tidak "berisik"
       const silentPaths = [
         "dashboard-stats",
@@ -197,7 +197,7 @@ async function startServer() {
   }
 
   // ─── Health Check ─────────────────────────────────────────
-  app.get("/api/health", (req, res) => {
+  app.get("/api/health", (req: Request, res: Response) => {
     res.json({
       status: "ok",
       service: "Kroombox API Gateway",
@@ -209,7 +209,7 @@ async function startServer() {
   });
 
   // ─── Public API Info ──────────────────────────────────────
-  app.get("/api/info", (req, res) => {
+  app.get("/api/info", (req: Request, res: Response) => {
     const packages = db.getPackages().map((p) => ({
       id: p.id,
       name: p.name,
@@ -253,7 +253,7 @@ async function startServer() {
   });
 
   // ─── API Proxy for API Tester (Bypass CORS) ───────────────
-  app.post("/api/proxy", async (req, res) => {
+  app.post("/api/proxy", async (req: Request, res: Response) => {
     const { method, url, headers, body, timeoutMs, followRedirects } = req.body;
     console.log("[PROXY] Incoming Headers:", headers);
     let targetUrl = url;
@@ -474,11 +474,11 @@ async function startServer() {
     }
   });
 
-  app.get("/api/proxy/history", (req, res) => {
+  app.get("/api/proxy/history", (req: Request, res: Response) => {
     res.json(proxyHistory);
   });
 
-  app.delete("/api/proxy/history", (req, res) => {
+  app.delete("/api/proxy/history", (req: Request, res: Response) => {
     proxyHistory.length = 0;
     res.json({ success: true });
   });
@@ -496,7 +496,7 @@ async function startServer() {
   app.use("/gateway", gatewayRouter);
 
   // ─── 404 Handler untuk /api/* ─────────────────────────────
-  app.use("/api/*", (req, res) => {
+  app.use("/api/*", (req: Request, res: Response) => {
     res.status(404).json({
       error: "Endpoint API tidak ditemukan.",
       path: req.path,
@@ -508,7 +508,7 @@ async function startServer() {
   // Backend akan melayani file UI statis dari folder /frontend/dist jika ada.
   const distPath = path.join(__dirname, "..", "frontend", "dist");
   app.use(express.static(distPath));
-  app.get("*", (req, res) => {
+  app.get("*", (req: Request, res: Response) => {
     res.sendFile(path.join(distPath, "index.html"), (err) => {
       if (err) {
         res.status(404).json({
