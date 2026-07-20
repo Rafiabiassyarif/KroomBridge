@@ -142,7 +142,7 @@ async function startServer() {
   // ─── CORS ─────────────────────────────────────────────────
   app.use(
     cors({
-      origin: (origin, callback) => {
+      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
         // Secara otomatis izinkan semua origin agar aplikasi pihak ketiga web (Chat UI) tidak diblokir
         return callback(null, true);
       },
