@@ -140,27 +140,11 @@ async function startServer() {
   const isDev = process.env.NODE_ENV !== "production";
 
   // ─── CORS ─────────────────────────────────────────────────
-  const allowedOrigins = (
-    process.env.ALLOWED_ORIGINS || "http://localhost:3000,http://localhost:5173"
-  )
-    .split(",")
-    .map((o) => o.trim());
-
   app.use(
     cors({
       origin: (origin, callback) => {
-        // Izinkan request tanpa origin (curl, Postman, server-to-server)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
-          return callback(null, true);
-        }
-        
-        // Izinkan akses dari IP lokal / Tailscale
-        if (origin.match(/^https?:\/\/(localhost|127\.0\.0\.1|100\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:\d+)?$/)) {
-          return callback(null, true);
-        }
-
-        callback(new Error(`CORS: Origin '${origin}' tidak diizinkan.`));
+        // Secara otomatis izinkan semua origin agar aplikasi pihak ketiga web (Chat UI) tidak diblokir
+        return callback(null, true);
       },
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -170,6 +154,9 @@ async function startServer() {
         "webhook_secret",
         "x-webhook-secret",
         "x-forwarded-for",
+        "x-api-key",
+        "api-key",
+        "x-custom-upstream-key"
       ],
     }),
   );

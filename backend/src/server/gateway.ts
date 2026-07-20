@@ -38,6 +38,38 @@ setInterval(
 // Map: clientId → requestsInLastSecond
 const anomalyMap = new Map<string, { count: number; resetAt: number }>();
 
+// ─── Kroma AI Models Cache ────────────────────────────────
+let cachedKromaModels: Record<string, string> = {};
+let lastKromaModelsFetch = 0;
+
+async function getKromaModelsMap(kromaApiKey: string, apiUrl: string) {
+  if (Date.now() - lastKromaModelsFetch < 5 * 60 * 1000) return cachedKromaModels;
+  try {
+    const res = await fetch(`${apiUrl}/v1/providers/`, {
+      headers: kromaApiKey ? { "Authorization": `Bearer ${kromaApiKey}`, "x-api-key": kromaApiKey } : {}
+    });
+    if (res.ok) {
+      const json = await res.json();
+      const newMap: Record<string, string> = {};
+      if (json.data && Array.isArray(json.data)) {
+        json.data.forEach((p: any) => {
+          if (p.models && Array.isArray(p.models)) {
+            p.models.forEach((m: string) => {
+               const cleanName = m.split("/").pop();
+               if (cleanName) newMap[cleanName] = m;
+            });
+          }
+        });
+      }
+      cachedKromaModels = newMap;
+      lastKromaModelsFetch = Date.now();
+    }
+  } catch (e) {
+    // abaikan jika gagal fetch
+  }
+  return cachedKromaModels;
+}
+
 // ============================================================
 // GATEWAY MIDDLEWARE
 // ============================================================
@@ -513,6 +545,8 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       "X-Forwarded-For": clientIp,
       "X-Client-Id": clientId,
       "X-Gateway": "KroomBridge-API-Gateway/2.0",
+      "User-Agent": req.headers["user-agent"] || "KroomBridge-Gateway/2.0",
+      "Accept": req.headers["accept"] || "application/json, text/event-stream",
       // Teruskan custom headers dari konfigurasi route
       ...(matchedRoute.headers || {}),
     };
@@ -636,12 +670,29 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       processedBody.stream_options = { include_usage: true };
     }
 
+    // ── Restore Original Model Prefix for Kroma AI ──
+    if (
+      matchedRoute.upstreamUrl.startsWith(KROMA_API_URL) &&
+      typeof processedBody === "object" &&
+      processedBody !== null &&
+      typeof processedBody.model === "string"
+    ) {
+      const requestModel = processedBody.model.split("/").pop() || processedBody.model;
+      const kromaMap = await getKromaModelsMap(kromaApiKey || "", KROMA_API_URL);
+      if (kromaMap[requestModel]) {
+        processedBody.model = kromaMap[requestModel];
+      }
+    }
+
     // ── Build Fetch Options ──
     const fetchOptions: RequestInit = {
       method: req.method,
       headers: upstreamHeaders,
-      signal: AbortSignal.timeout(matchedRoute.timeout || 120000),
     };
+
+    if (matchedRoute.timeout && matchedRoute.timeout > 0) {
+      fetchOptions.signal = AbortSignal.timeout(matchedRoute.timeout);
+    }
 
     if (["POST", "PUT", "PATCH"].includes(req.method)) {
       fetchOptions.body = JSON.stringify(processedBody);
@@ -866,7 +917,9 @@ gatewayRouter.use(async (req: Request, res: Response) => {
 
     if (error.name === "AbortError" || error.name === "TimeoutError") {
       statusCode = 504;
-      message = `Upstream server timeout setelah ${matchedRoute.timeout || 10000}ms.`;
+      message = matchedRoute.timeout 
+        ? `Upstream server timeout setelah ${matchedRoute.timeout}ms.`
+        : "Upstream server timeout atau request dibatalkan.";
     } else if (error.code === "ECONNREFUSED") {
       message = "Koneksi ke upstream server ditolak.";
     } else if (error.code === "ENOTFOUND") {

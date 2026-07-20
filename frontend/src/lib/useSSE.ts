@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { getFullApiUrl } from "./api";
 
 /**
  * Hook untuk subscribe ke Server-Sent Events di /api/events/stream.
@@ -35,7 +36,7 @@ export function useSSE(
 
       try {
         const es = new EventSource(
-          `/api/events/stream?token=${encodeURIComponent(token)}`,
+          getFullApiUrl(`/api/events/stream?token=${encodeURIComponent(token)}`),
         );
         esRef.current = es;
 

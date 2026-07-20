@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { adminFetch } from "../lib/api";
+import { adminFetch, getFullApiUrl } from "../lib/api";
 import {
   AreaChart,
   Area,
@@ -957,7 +957,7 @@ export default function DashboardView({
       if (sseRef.current) sseRef.current.close();
 
       const es = new EventSource(
-        `/api/events/stream?token=${encodeURIComponent(token)}`,
+        getFullApiUrl(`/api/events/stream?token=${encodeURIComponent(token)}`),
       );
       sseRef.current = es;
 
@@ -1839,7 +1839,7 @@ export default function DashboardView({
               </div>
 
               <div className="relative z-10 h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <AreaChart
                     data={timeSeries}
                     margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
@@ -1939,7 +1939,7 @@ export default function DashboardView({
                 className="relative flex items-center justify-center"
                 style={{ height: 200 }}
               >
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart>
                     <Pie
                       data={statusData}
