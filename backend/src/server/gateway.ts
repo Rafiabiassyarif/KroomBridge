@@ -42,8 +42,11 @@ const anomalyMap = new Map<string, { count: number; resetAt: number }>();
 let cachedKromaModels: Record<string, string> = {};
 let lastKromaModelsFetch = 0;
 
-async function getKromaModelsMap(kromaApiKey: string, apiUrl: string) {
-  if (Date.now() - lastKromaModelsFetch < 5 * 60 * 1000) return cachedKromaModels;
+async function getKromaModelsMap(kromaApiKey: string, apiUrl: string): Promise<Record<string, string>> {
+  // Hanya skip fetch jika cache terisi DAN belum expired 5 menit
+  const cacheIsValid = Object.keys(cachedKromaModels).length > 0 && (Date.now() - lastKromaModelsFetch < 5 * 60 * 1000);
+  if (cacheIsValid) return cachedKromaModels;
+
   try {
     const res = await fetch(`${apiUrl}/v1/providers/`, {
       headers: kromaApiKey ? { "Authorization": `Bearer ${kromaApiKey}`, "x-api-key": kromaApiKey } : {}
@@ -61,11 +64,14 @@ async function getKromaModelsMap(kromaApiKey: string, apiUrl: string) {
           }
         });
       }
-      cachedKromaModels = newMap;
-      lastKromaModelsFetch = Date.now();
+      if (Object.keys(newMap).length > 0) {
+        cachedKromaModels = newMap;
+        lastKromaModelsFetch = Date.now();
+        console.log(`[Gateway] Kroma model map refreshed: ${Object.keys(newMap).length} models cached.`);
+      }
     }
   } catch (e) {
-    // abaikan jika gagal fetch
+    console.warn("[Gateway] Gagal fetch Kroma model list:", (e as Error).message);
   }
   return cachedKromaModels;
 }
@@ -661,11 +667,15 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     }
 
     // Memaksa upstream API untuk mengembalikan `usage` di akhir stream agar perhitungan token 100% akurat
+    // Hanya untuk model cloud (QW, dll) — LMStudio/Ollama lokal tidak selalu mendukung stream_options
+    const isLocalModel = typeof processedBody?.model === "string" &&
+      (processedBody.model.includes("lmstudio") || processedBody.model.includes("ollama"));
     if (
       typeof processedBody === "object" &&
       processedBody !== null &&
       processedBody.stream === true &&
-      !processedBody.stream_options
+      !processedBody.stream_options &&
+      !isLocalModel
     ) {
       processedBody.stream_options = { include_usage: true };
     }
@@ -713,8 +723,9 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     const isStream = upstreamResponse.ok && contentType.includes("event-stream");
 
     if (isStream && upstreamResponse.body) {
-      // Automatically aggregate when stream is requested to return 1 neat JSON
-      const shouldAggregate = processedBody?.stream === true;
+      // Aggregate hanya saat klien TIDAK minta streaming (stream=false/undefined)
+      // Saat stream=true, data harus langsung diteruskan ke klien sebagai SSE
+      const shouldAggregate = !processedBody?.stream;
 
       if (!shouldAggregate) {
         res.setHeader("Content-Type", contentType || "text/event-stream");
