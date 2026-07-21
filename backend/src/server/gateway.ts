@@ -378,6 +378,22 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     req.body.model = await getFullModelName(req.body.model);
   }
 
+  // ── Cek Model yang Diizinkan Paket ──
+  if (req.body?.model && pkg.allowedModels && pkg.allowedModels.length > 0 && !pkg.allowedModels.includes("*")) {
+    const requestedModel = req.body.model;
+    const isModelAllowed = pkg.allowedModels.some((m: string) => 
+      requestedModel === m || requestedModel.includes(m) || m.includes(requestedModel)
+    );
+    if (!isModelAllowed) {
+      logRequest(403, "Model tidak diizinkan oleh paket");
+      return res.status(403).json({
+        error: `Paket Anda (${pkg.name}) tidak mengizinkan penggunaan model '${requestedModel}'.`,
+        allowedModels: pkg.allowedModels,
+        hint: "Gunakan model yang diizinkan atau upgrade paket.",
+      });
+    }
+  }
+
   // ── Cek Model yang Dinonaktifkan ──
   if (req.body?.model) {
     const meta = db.getMeta();
@@ -694,6 +710,55 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       }
     }
 
+    // ── Strip llama.cpp-specific params untuk LMStudio/Ollama ──
+    // Hermes dan klien llama.cpp lainnya mengirim parameter seperti n_keep, n_ctx, dll.
+    // Parameter ini bisa menyebabkan error di LMStudio jika nilainya melebihi
+    // context length model yang di-load.
+    if (
+      typeof processedBody === "object" &&
+      processedBody !== null &&
+      typeof processedBody.model === "string" &&
+      (processedBody.model.includes("lmstudio") || processedBody.model.includes("ollama"))
+    ) {
+      const llamaCppParams = [
+        "n_keep", "n_ctx", "n_predict", "n_batch", "n_threads",
+        "top_k", "tfs_z", "typical_p", "repeat_last_n", "repeat_penalty",
+        "mirostat", "mirostat_tau", "mirostat_eta", "penalize_nl",
+        "seed", "ignore_eos", "logit_bias", "grammar",
+        "cache_prompt", "slot_id", "n_probs", "min_keep",
+      ];
+      for (const param of llamaCppParams) {
+        if (param in processedBody) {
+          delete processedBody[param];
+        }
+      }
+
+      // ── Auto-truncate messages agar muat di context LMStudio/Ollama ──
+      // Model lokal biasanya hanya punya 4096 token. Hermes & klien lain
+      // kadang mengirim history panjang (system prompt + tools + history).
+      // Strategi: pertahankan system prompt + N pesan terbaru saja.
+      const LOCAL_CTX_SAFE_LIMIT = 3600; // token aman untuk model 4096 ctx
+      if (
+        Array.isArray(processedBody.messages) &&
+        processedBody.messages.length > 2
+      ) {
+        const estimatedTotal = estimateTokens(processedBody.messages);
+        if (estimatedTotal > LOCAL_CTX_SAFE_LIMIT) {
+          const systemMsgs = processedBody.messages.filter((m: any) => m.role === "system");
+          const nonSystemMsgs = processedBody.messages.filter((m: any) => m.role !== "system");
+
+          // Pangkas pesan dari yang paling lama, pertahankan pesan terbaru
+          let kept = [...nonSystemMsgs];
+          while (kept.length > 1 && estimateTokens([...systemMsgs, ...kept]) > LOCAL_CTX_SAFE_LIMIT) {
+            kept.shift(); // Buang pesan paling lama
+          }
+
+          processedBody.messages = [...systemMsgs, ...kept];
+          console.log(`[Gateway] Auto-truncated messages: ${nonSystemMsgs.length} → ${kept.length} (est. ${estimateTokens(processedBody.messages)} tokens)`);
+        }
+      }
+    }
+
     // ── Build Fetch Options ──
     const fetchOptions: RequestInit = {
       method: req.method,
@@ -775,7 +840,26 @@ gatewayRouter.use(async (req: Request, res: Response) => {
               }
             }
           } else {
-            res.write(value);
+            // ── Normalisasi reasoning_content ke <think> tag untuk kompatibilitas Hermes ──
+            // Hermes tidak mengerti field 'reasoning_content', tapi mengerti <think>...</think>
+            // yang merupakan format thinking standar dari Anthropic/OpenAI.
+            let chunkStr = decoder.decode(value, { stream: true });
+            const lines = chunkStr.split('\n');
+            const normalizedLines = lines.map(line => {
+              if (!line.startsWith('data: ') || line.includes('[DONE]')) return line;
+              try {
+                const parsed = JSON.parse(line.slice(6));
+                const delta = parsed.choices?.[0]?.delta;
+                if (delta && delta.reasoning_content && !delta.content) {
+                  // Inject <think> content agar Hermes tahu ini adalah thinking block
+                  delta.content = delta.reasoning_content;
+                  delete delta.reasoning_content;
+                  return 'data: ' + JSON.stringify(parsed);
+                }
+              } catch { /* chunk belum lengkap */ }
+              return line;
+            });
+            res.write(Buffer.from(normalizedLines.join('\n')));
           }
         }
       } catch (err) {
@@ -882,11 +966,51 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         if (jsonResponse.data && Array.isArray(jsonResponse.data)) {
           jsonResponse.data = jsonResponse.data.map((m: any) => {
             if (m.id && typeof m.id === "string") {
-              // Hapus semua prefix (seperti pc-putih/lmstudio/)
               m.id = m.id.split("/").pop();
             }
             return m;
           });
+        }
+      }
+
+      // ── Strip model prefix dari response chat/completions ──
+      // Kroma kadang mengembalikan model dengan full path di response body.
+      // Hermes bisa jadi bingung jika model di response != model yang dikirim.
+      if (
+        typeof jsonResponse === "object" &&
+        jsonResponse !== null &&
+        typeof jsonResponse.model === "string" &&
+        jsonResponse.model.includes("/")
+      ) {
+        jsonResponse.model = jsonResponse.model.split("/").pop();
+      }
+
+      // ── Normalisasi Error Response ke format OpenAI ──
+      // Hermes dan klien OpenAI-compatible mengharapkan format:
+      // { error: { message, type, code } }
+      // Beberapa provider (LMStudio, Kroma) kadang pakai format berbeda.
+      if (upstreamResponse.status >= 400 && typeof jsonResponse === "object" && jsonResponse !== null) {
+        // Format Kroma: { type, error: { type, message } }
+        if (jsonResponse.error && typeof jsonResponse.error === "object" && !jsonResponse.error.message) {
+          // sudah OpenAI format — tidak perlu diubah
+        } else if (jsonResponse.type === "error" && jsonResponse.error) {
+          // Format Kroma: { type: "error", error: { type, message } }
+          jsonResponse = {
+            error: {
+              message: jsonResponse.error?.message || "Upstream error",
+              type: jsonResponse.error?.type || "upstream_error",
+              code: String(upstreamResponse.status),
+            }
+          };
+        } else if (typeof jsonResponse.error === "string") {
+          // Format simpel: { error: "pesan" }
+          jsonResponse = {
+            error: {
+              message: jsonResponse.error,
+              type: "upstream_error",
+              code: String(upstreamResponse.status),
+            }
+          };
         }
       }
 

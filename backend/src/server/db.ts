@@ -41,6 +41,7 @@ export const initMySQL = async () => {
         allowOverage tinyint(1) NOT NULL DEFAULT '0',
         overageRatePer1K float NOT NULL DEFAULT '0',
         allowedEndpoints json DEFAULT NULL,
+        allowedModels json DEFAULT NULL,
         price int DEFAULT NULL,
         createdAt varchar(50) DEFAULT NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -140,6 +141,29 @@ export const initMySQL = async () => {
     }
   }
 
+  try {
+    await pool.query(
+      "ALTER TABLE packages ADD COLUMN IF NOT EXISTS allowedModels json DEFAULT NULL",
+    );
+  } catch (err: any) {
+    if (
+      err?.code === "ER_PARSE_ERROR" ||
+      String(err?.message || "").includes("syntax")
+    ) {
+      try {
+        const [cols]: any = await pool.query(
+          "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'packages' AND COLUMN_NAME = 'allowedModels'",
+        );
+        if (Array.isArray(cols) && cols.length === 0) {
+          await pool.query(
+            "ALTER TABLE packages ADD COLUMN allowedModels json DEFAULT NULL",
+          );
+        }
+      } catch {
+      }
+    }
+  }
+
   // Sinkronisasi awal: Load dari MySQL ke RAM
   const [admins] = await pool.query("SELECT * FROM admins");
   const [packages] = await pool.query("SELECT * FROM packages");
@@ -156,6 +180,10 @@ export const initMySQL = async () => {
       typeof p.allowedEndpoints === "string"
         ? JSON.parse(p.allowedEndpoints)
         : p.allowedEndpoints,
+    allowedModels:
+      typeof p.allowedModels === "string"
+        ? JSON.parse(p.allowedModels)
+        : p.allowedModels,
     allowOverage: !!p.allowOverage,
     quotaType: "token", // Paksa selalu token
   }));
@@ -210,6 +238,7 @@ export type Package = {
   allowOverage: boolean;
   overageRatePer1K: number;
   allowedEndpoints: string[];
+  allowedModels?: string[];
   price?: number;
   description?: string;
   createdAt?: string;
@@ -422,6 +451,7 @@ export class DatabaseCache {
       const row = {
         ...pkg,
         allowedEndpoints: JSON.stringify(pkg.allowedEndpoints || []),
+        allowedModels: JSON.stringify(pkg.allowedModels || []),
       };
       pool
         .query("INSERT IGNORE INTO packages SET ?", [row])
@@ -437,6 +467,8 @@ export class DatabaseCache {
       const u = { ...updates };
       if (u.allowedEndpoints)
         u.allowedEndpoints = JSON.stringify(u.allowedEndpoints) as any;
+      if (u.allowedModels)
+        u.allowedModels = JSON.stringify(u.allowedModels) as any;
       pool
         .query("UPDATE packages SET ? WHERE id = ?", [u, id])
         .catch(console.error);

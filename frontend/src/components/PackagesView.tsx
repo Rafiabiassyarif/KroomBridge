@@ -43,7 +43,9 @@ export default function PackagesView() {
     quotaType: "token",
     allowOverage: false,
     overageRatePer1K: 0,
+    price: 0,
     allowedEndpoints: ["*"],
+    allowedModels: [],
   });
 
   const fetchData = async () => {
@@ -134,7 +136,9 @@ export default function PackagesView() {
       quotaType: "token",
       allowOverage: false,
       overageRatePer1K: 0,
+      price: 0,
       allowedEndpoints: ["*"],
+      allowedModels: [],
     });
     setShowAddModal(true);
   };
@@ -255,6 +259,19 @@ export default function PackagesView() {
                 <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/80">
                   <span className="text-slate-500 dark:text-slate-400 font-semibold flex items-center">
                     <Activity className="w-4 h-4 mr-2 text-slate-400 dark:text-slate-500" />{" "}
+                    Harga Paket
+                  </span>
+                  <span className="font-extrabold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700">
+                    {pkg.price === 0 || !pkg.price ? (
+                      <span className="text-emerald-600 dark:text-emerald-400">Gratis</span>
+                    ) : (
+                      `Rp ${pkg.price.toLocaleString("id-ID")}`
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/80">
+                  <span className="text-slate-500 dark:text-slate-400 font-semibold flex items-center">
+                    <Activity className="w-4 h-4 mr-2 text-slate-400 dark:text-slate-500" />{" "}
                     Rate Limit
                   </span>
                   <span className="font-extrabold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700">
@@ -292,19 +309,34 @@ export default function PackagesView() {
                     </span>
                   )}
                 </div>
-                <div className="pt-2">
-                  <span className="text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-wider block mb-3">
-                    Akses API Terbuka
+                <div className="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800/80">
+                  <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] uppercase tracking-widest block mb-3">
+                    Model AI yang Diizinkan
                   </span>
                   <div className="flex flex-wrap gap-2">
-                    {pkg.allowedEndpoints?.map((ep, idx) => (
-                      <span
-                        key={idx}
-                        className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-md text-xs font-mono font-bold shadow-sm"
-                      >
-                        {ep}
-                      </span>
-                    ))}
+                    {pkg.allowedModels && pkg.allowedModels.length > 0 && !pkg.allowedModels.includes("*") ? (
+                      pkg.allowedModels.map((m, idx) => (
+                        <span
+                          key={idx}
+                          className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/30 dark:to-blue-900/20 border border-indigo-100/50 dark:border-indigo-700/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-md text-xs font-mono font-bold shadow-sm"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400 opacity-70"></span>
+                          {m}
+                        </span>
+                      ))
+                    ) : (
+                      <div className="w-full bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-100/50 dark:border-emerald-800/30 rounded-xl p-3 flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300 leading-none mb-1">Akses Tanpa Batas</p>
+                          <p className="text-[10px] font-bold text-emerald-600/60 dark:text-emerald-400/60 uppercase tracking-wider leading-none">Semua Model (*)</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -360,19 +392,38 @@ export default function PackagesView() {
                 </button>
               </div>
               <form onSubmit={handleSave} className="p-8 space-y-6">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                    Nama Paket
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full border-slate-200 dark:border-slate-700 rounded-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 px-4 py-3 border bg-slate-50/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors outline-none dark:text-white"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                      Nama Paket
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full border-slate-200 dark:border-slate-700 rounded-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 px-4 py-3 border bg-slate-50/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors outline-none dark:text-white"
+                      value={formData.name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                      Harga Paket (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      className="w-full border-slate-200 dark:border-slate-700 rounded-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 px-4 py-3 border bg-slate-50/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors outline-none font-mono dark:text-white"
+                      value={formData.price || 0}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          price: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
 
@@ -467,31 +518,29 @@ export default function PackagesView() {
                   )}
                 </div>
 
+
+
                 <div>
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                    Endpoint API yang Diizinkan
+                    Model AI yang Diizinkan
                   </label>
                   <input
                     type="text"
                     className="w-full border-slate-200 dark:border-slate-700 rounded-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 px-4 py-3 border font-mono text-sm mb-2 bg-slate-50/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors outline-none dark:text-white"
-                    value={formData.allowedEndpoints?.join(", ")}
+                    value={formData.allowedModels?.join(", ")}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        allowedEndpoints: e.target.value
+                        allowedModels: e.target.value
                           .split(",")
                           .map((s) => s.trim())
                           .filter(Boolean),
                       })
                     }
-                    placeholder="/ai/chat, /wa/send, atau * untuk semua"
+                    placeholder="gpt-4o, claude-3-sonnet, atau biarkan kosong"
                   />
                   <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    Gunakan koma sebagai pemisah. Gunakan{" "}
-                    <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded font-bold text-rose-500 dark:text-rose-400">
-                      *
-                    </code>{" "}
-                    untuk akses tak terbatas.
+                    Gunakan koma sebagai pemisah. Kosongkan atau isi <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded font-bold text-rose-500 dark:text-rose-400">*</code> untuk mengizinkan semua model.
                   </p>
                 </div>
 

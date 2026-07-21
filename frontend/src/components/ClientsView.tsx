@@ -258,6 +258,9 @@ export default function ClientsView() {
       </div>
     );
 
+  const selectedPkgForAdd = packages.find((p) => p.id === newClientPackage);
+  const selectedPkgForEdit = showEditModal ? packages.find((p) => p.id === showEditModal.packageId) : null;
+
   return (
     <motion.div
       variants={containerVariants}
@@ -628,6 +631,35 @@ export default function ClientsView() {
                       </option>
                     ))}
                   </select>
+                  {selectedPkgForAdd && (
+                    <div className="mt-3 p-4 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800 rounded-xl">
+                      <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-widest">
+                        Model yang Diizinkan (Dari Paket)
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedPkgForAdd.allowedModels && selectedPkgForAdd.allowedModels.length > 0 && !selectedPkgForAdd.allowedModels.includes("*") ? (
+                          selectedPkgForAdd.allowedModels.map((m, idx) => (
+                            <span key={idx} className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/30 dark:to-blue-900/20 border border-indigo-100/50 dark:border-indigo-700/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-md text-[11px] font-mono font-bold shadow-sm">
+                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400 opacity-70"></span>
+                              {m}
+                            </span>
+                          ))
+                        ) : (
+                          <div className="w-full bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-100/50 dark:border-emerald-800/30 rounded-xl p-3 flex items-center gap-3">
+                            <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300 leading-none mb-1">Akses Tanpa Batas</p>
+                              <p className="text-[10px] font-bold text-emerald-600/60 dark:text-emerald-400/60 uppercase tracking-wider leading-none">Semua Model (*)</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
@@ -738,6 +770,35 @@ export default function ClientsView() {
                       </option>
                     ))}
                   </select>
+                  {selectedPkgForEdit && (
+                    <div className="mt-3 p-4 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800 rounded-xl">
+                      <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-widest">
+                        Model yang Diizinkan (Dari Paket)
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedPkgForEdit.allowedModels && selectedPkgForEdit.allowedModels.length > 0 && !selectedPkgForEdit.allowedModels.includes("*") ? (
+                          selectedPkgForEdit.allowedModels.map((m, idx) => (
+                            <span key={idx} className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/30 dark:to-blue-900/20 border border-indigo-100/50 dark:border-indigo-700/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-md text-[11px] font-mono font-bold shadow-sm">
+                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400 opacity-70"></span>
+                              {m}
+                            </span>
+                          ))
+                        ) : (
+                          <div className="w-full bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-100/50 dark:border-emerald-800/30 rounded-xl p-3 flex items-center gap-3">
+                            <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300 leading-none mb-1">Akses Tanpa Batas</p>
+                              <p className="text-[10px] font-bold text-emerald-600/60 dark:text-emerald-400/60 uppercase tracking-wider leading-none">Semua Model (*)</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">

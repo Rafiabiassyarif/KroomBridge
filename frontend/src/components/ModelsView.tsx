@@ -12,13 +12,7 @@ import {
   Power
 } from "lucide-react";
 
-const CHAT_MODELS = [
-  { name: "GPT 5.6", multiplier: 5.5, provider: "OpenAI" },
-  { name: "Claude Sonnet 3.5", multiplier: 3.5, provider: "Anthropic" },
-  { name: "Gemini 3.5 Flash", multiplier: 1.5, provider: "Google" },
-  { name: "Kimi K2.7 Code", multiplier: 0.95, provider: "Moonshot" },
-  { name: "Qwen 3.6 72B", multiplier: 0.8, provider: "Alibaba" },
-];
+
 
 type SortConfig = {
   key: "name" | "multiplier";
@@ -26,7 +20,7 @@ type SortConfig = {
 } | null;
 
 export default function ModelsView() {
-  const [activeModels, setActiveModels] = useState<any[]>(CHAT_MODELS);
+  const [activeModels, setActiveModels] = useState<any[]>([]);
   const [disabledModels, setDisabledModels] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState<"idle" | "success" | "error">("idle");
@@ -100,7 +94,7 @@ export default function ModelsView() {
         setActiveModels(allModels);
         setSyncStatus("success");
       } else {
-        setActiveModels(CHAT_MODELS);
+        setActiveModels([]);
         setSyncStatus("idle");
       }
     } catch (err: any) {
@@ -310,15 +304,17 @@ export default function ModelsView() {
                     key={idx}
                     className={`transition-colors ${isDisabled ? 'bg-slate-50/50 dark:bg-slate-900/20 opacity-60 grayscale-[0.5]' : 'hover:bg-slate-50 dark:hover:bg-white/[0.02]'}`}
                   >
-                    <td className="px-6 py-4 font-bold text-slate-800 dark:text-slate-200 flex items-center space-x-3">
-                      <div className={`w-6 h-6 rounded-md flex items-center justify-center ${isDisabled ? 'bg-slate-200 dark:bg-slate-800' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                        {isDisabled ? (
-                           <Power className="w-3 h-3 text-slate-400" />
-                        ) : (
-                           <Sparkles className="w-3 h-3 text-slate-400" />
-                        )}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${isDisabled ? 'bg-slate-200 dark:bg-slate-800' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                          {isDisabled ? (
+                             <Power className="w-3 h-3 text-slate-400" />
+                          ) : (
+                             <Sparkles className="w-3 h-3 text-slate-400" />
+                          )}
+                        </div>
+                        <span className={`font-bold text-slate-800 dark:text-slate-200 ${isDisabled ? 'line-through text-slate-500 dark:text-slate-500' : ''}`}>{model.name}</span>
                       </div>
-                      <span className={isDisabled ? 'line-through text-slate-500 dark:text-slate-500' : ''}>{model.name}</span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-1.5">
