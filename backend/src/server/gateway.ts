@@ -379,10 +379,10 @@ gatewayRouter.use(async (req: Request, res: Response) => {
   }
 
   // ── Cek Model yang Diizinkan Paket ──
-  if (req.body?.model && pkg.allowedModels && pkg.allowedModels.length > 0 && !pkg.allowedModels.includes("*")) {
+  if (req.body?.model && pkg.allowedModels && !pkg.allowedModels.includes("*")) {
     const requestedModel = req.body.model;
     const isModelAllowed = pkg.allowedModels.some((m: string) => 
-      requestedModel === m || requestedModel.includes(m) || m.includes(requestedModel)
+      requestedModel === m || requestedModel.endsWith("/" + m) || m.endsWith("/" + requestedModel)
     );
     if (!isModelAllowed) {
       logRequest(403, "Model tidak diizinkan oleh paket");
@@ -542,12 +542,20 @@ gatewayRouter.use(async (req: Request, res: Response) => {
                       p.models.forEach((m: string) => {
                          const cleanName = m.split("/").pop();
                          if (cleanName && !disabled.includes(cleanName)) {
-                            allModels.push({
-                               id: cleanName,
-                               object: "model",
-                               created: Math.floor(Date.now() / 1000),
-                               owned_by: p.name || "kroma-ai"
-                            });
+                            // --- Terapkan Filter Berdasarkan Paket Klien ---
+                            const isUnlimited = !pkg.allowedModels || pkg.allowedModels.includes("*");
+                            const isAllowed = isUnlimited || pkg.allowedModels.some((allowedModel: string) => 
+                              cleanName === allowedModel
+                            );
+                            
+                            if (isAllowed) {
+                              allModels.push({
+                                 id: cleanName,
+                                 object: "model",
+                                 created: Math.floor(Date.now() / 1000),
+                                 owned_by: p.name || "kroma-ai"
+                              });
+                            }
                          }
                       });
                    }
@@ -717,8 +725,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     if (
       typeof processedBody === "object" &&
       processedBody !== null &&
-      typeof processedBody.model === "string" &&
-      (processedBody.model.includes("lmstudio") || processedBody.model.includes("ollama"))
+      typeof processedBody.model === "string"
     ) {
       const llamaCppParams = [
         "n_keep", "n_ctx", "n_predict", "n_batch", "n_threads",
@@ -737,7 +744,8 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       // Model lokal biasanya hanya punya 4096 token. Hermes & klien lain
       // kadang mengirim history panjang (system prompt + tools + history).
       // Strategi: pertahankan system prompt + N pesan terbaru saja.
-      const LOCAL_CTX_SAFE_LIMIT = 3600; // token aman untuk model 4096 ctx
+      const isLocal = processedBody.model.includes("lmstudio") || processedBody.model.includes("ollama") || processedBody.model.includes("pc-hitam");
+      const LOCAL_CTX_SAFE_LIMIT = isLocal ? 3600 : 128000;
       if (
         Array.isArray(processedBody.messages) &&
         processedBody.messages.length > 2
@@ -751,6 +759,12 @@ gatewayRouter.use(async (req: Request, res: Response) => {
           let kept = [...nonSystemMsgs];
           while (kept.length > 1 && estimateTokens([...systemMsgs, ...kept]) > LOCAL_CTX_SAFE_LIMIT) {
             kept.shift(); // Buang pesan paling lama
+          }
+
+          // Pastikan pesan pertama (setelah system) adalah dari "user"
+          // karena beberapa model cloud (GLM, Claude) akan error 400 jika dimulai dengan "assistant"
+          while (kept.length > 1 && kept[0].role !== "user") {
+            kept.shift();
           }
 
           processedBody.messages = [...systemMsgs, ...kept];

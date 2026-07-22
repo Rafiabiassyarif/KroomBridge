@@ -1,7 +1,7 @@
 import { adminFetch } from "../lib/api";
 import React, { useState, useEffect } from "react";
 import { Package } from "../../../backend/src/server/db";
-import { Zap, Activity, Edit2, Trash2, Plus } from "lucide-react";
+import { Zap, Activity, Edit2, Trash2, Plus, Check, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAutoRefresh } from "../lib/useAutoRefresh";
 import { useSSE } from "../lib/useSSE";
@@ -28,6 +28,7 @@ const itemVariants = {
 
 export default function PackagesView() {
   const [packages, setPackages] = useState<Package[]>([]);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState<Package | null>(null);
@@ -54,6 +55,23 @@ export default function PackagesView() {
       if (res.ok) {
         const data = await res.json();
         setPackages(Array.isArray(data) ? data : []);
+      }
+      
+      const provRes = await adminFetch("/api/admin/providers");
+      if (provRes.ok) {
+        const provData = await provRes.json();
+        const providers = provData.data || [];
+        const modelsSet = new Set<string>();
+        providers.forEach((p: any) => {
+          if (p.models) {
+            p.models.forEach((m: string) => {
+              const parts = m.split("/");
+              const shortName = parts[parts.length - 1];
+              modelsSet.add(shortName);
+            });
+          }
+        });
+        setAvailableModels(Array.from(modelsSet));
       }
     } catch (e) {
       console.error(e);
@@ -138,7 +156,7 @@ export default function PackagesView() {
       overageRatePer1K: 0,
       price: 0,
       allowedEndpoints: ["*"],
-      allowedModels: [],
+      allowedModels: ["*"],
     });
     setShowAddModal(true);
   };
@@ -315,15 +333,19 @@ export default function PackagesView() {
                   </span>
                   <div className="flex flex-wrap gap-2">
                     {pkg.allowedModels && pkg.allowedModels.length > 0 && !pkg.allowedModels.includes("*") ? (
-                      pkg.allowedModels.map((m, idx) => (
-                        <span
-                          key={idx}
-                          className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/30 dark:to-blue-900/20 border border-indigo-100/50 dark:border-indigo-700/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-md text-xs font-mono font-bold shadow-sm"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400 opacity-70"></span>
-                          {m}
-                        </span>
-                      ))
+                      pkg.allowedModels.filter(m => availableModels.includes(m)).length > 0 ? (
+                        pkg.allowedModels.filter(m => availableModels.includes(m)).map((m, idx) => (
+                          <span
+                            key={idx}
+                            className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/30 dark:to-blue-900/20 border border-indigo-100/50 dark:border-indigo-700/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-md text-xs font-mono font-bold shadow-sm"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400 opacity-70"></span>
+                            {m}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">Tidak ada model aktif yang diizinkan</span>
+                      )
                     ) : (
                       <div className="w-full bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-100/50 dark:border-emerald-800/30 rounded-xl p-3 flex items-center gap-3">
                         <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
@@ -374,25 +396,27 @@ export default function PackagesView() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-lg overflow-hidden my-8 border border-slate-100 dark:border-slate-800"
+              className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-lg overflow-hidden my-auto border border-slate-100 dark:border-slate-800 flex flex-col max-h-[90vh]"
             >
-              <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
-                <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">
-                  {showEditModal ? "Edit Paket" : "Tambah Paket Baru"}
-                </h3>
+              <div className="p-8 border-b border-slate-100 dark:border-slate-800/60 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/20 shrink-0">
+                <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                    <Edit2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  {showEditModal ? "Edit Paket" : "Tambah Paket"}
+                </h2>
                 <button
-                  type="button"
                   onClick={() => {
                     setShowAddModal(false);
                     setShowEditModal(null);
                   }}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 p-2 rounded-full transition-colors outline-none"
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 transition-colors"
                 >
                   <Plus className="w-5 h-5 rotate-45" />
                 </button>
               </div>
-              <form onSubmit={handleSave} className="p-8 space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+              <form onSubmit={handleSave} className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-2">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                       Nama Paket
@@ -400,7 +424,7 @@ export default function PackagesView() {
                     <input
                       type="text"
                       required
-                      className="w-full border-slate-200 dark:border-slate-700 rounded-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 px-4 py-3 border bg-slate-50/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors outline-none dark:text-white"
+                      className="w-full border border-slate-200 dark:border-slate-700/60 rounded-xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 px-4 py-3 bg-slate-50/50 dark:bg-[#0f172a]/40 hover:bg-white dark:hover:bg-[#0f172a]/80 transition-all outline-none dark:text-white font-medium"
                       value={formData.name}
                       onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
@@ -411,30 +435,35 @@ export default function PackagesView() {
                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                       Harga Paket (Rp)
                     </label>
-                    <input
-                      type="number"
-                      required
-                      className="w-full border-slate-200 dark:border-slate-700 rounded-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 px-4 py-3 border bg-slate-50/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors outline-none font-mono dark:text-white"
-                      value={formData.price || 0}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          price: Number(e.target.value),
-                        })
-                      }
-                    />
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 dark:text-slate-500">
+                        Rp
+                      </span>
+                      <input
+                        type="number"
+                        required
+                        className="w-full border border-slate-200 dark:border-slate-700/60 rounded-xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 pl-11 pr-4 py-3 bg-slate-50/50 dark:bg-[#0f172a]/40 hover:bg-white dark:hover:bg-[#0f172a]/80 transition-all outline-none font-mono dark:text-white"
+                        value={formData.price || 0}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            price: Number(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
 
                   <div>
                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                      Rate Limit (req/mnt)
+                      Rate Limit <span className="text-slate-400 dark:text-slate-500 font-medium ml-1">(req/mnt)</span>
                     </label>
                     <input
                       type="number"
                       required
-                      className="w-full border-slate-200 dark:border-slate-700 rounded-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 px-4 py-3 border bg-slate-50/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors outline-none font-mono dark:text-white"
+                      className="w-full border border-slate-200 dark:border-slate-700/60 rounded-xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 px-4 py-3 bg-slate-50/50 dark:bg-[#0f172a]/40 hover:bg-white dark:hover:bg-[#0f172a]/80 transition-all outline-none font-mono dark:text-white"
                       value={formData.maxRequestsPerMinute}
                       onChange={(e) =>
                         setFormData({
@@ -446,12 +475,12 @@ export default function PackagesView() {
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                      Kuota Bulanan
+                      Kuota Bulanan <span className="text-slate-400 dark:text-slate-500 font-medium ml-1">(tokens)</span>
                     </label>
                     <input
                       type="number"
                       required
-                      className="w-full border-slate-200 dark:border-slate-700 rounded-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 px-4 py-3 border bg-slate-50/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors outline-none font-mono dark:text-white"
+                      className="w-full border border-slate-200 dark:border-slate-700/60 rounded-xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 px-4 py-3 bg-slate-50/50 dark:bg-[#0f172a]/40 hover:bg-white dark:hover:bg-[#0f172a]/80 transition-all outline-none font-mono dark:text-white"
                       value={formData.monthlyQuota}
                       onChange={(e) =>
                         setFormData({
@@ -463,15 +492,14 @@ export default function PackagesView() {
                   </div>
                 </div>
 
-                <div className="bg-slate-50/80 dark:bg-slate-800/50 p-5 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 shadow-inner">
+                <div className="bg-slate-50/80 dark:bg-[#0f172a]/30 p-5 border border-slate-200 dark:border-slate-700/60 rounded-2xl space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <label className="font-bold text-slate-800 dark:text-slate-200 text-sm">
                         Izinkan Overage (Terlewat Batas)
                       </label>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                        Klien dapat memanggil API setelah kuota habis dengan
-                        biaya tambahan.
+                        Klien dapat memanggil API setelah kuota habis dengan biaya tambahan.
                       </p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -486,7 +514,7 @@ export default function PackagesView() {
                           })
                         }
                       />
-                      <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-12 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-inner"></div>
                     </label>
                   </div>
 
@@ -520,31 +548,78 @@ export default function PackagesView() {
 
 
 
-                <div>
+                <div className="mt-2">
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                     Model AI yang Diizinkan
                   </label>
-                  <input
-                    type="text"
-                    className="w-full border-slate-200 dark:border-slate-700 rounded-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 px-4 py-3 border font-mono text-sm mb-2 bg-slate-50/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors outline-none dark:text-white"
-                    value={formData.allowedModels?.join(", ")}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        allowedModels: e.target.value
-                          .split(",")
-                          .map((s) => s.trim())
-                          .filter(Boolean),
-                      })
-                    }
-                    placeholder="gpt-4o, claude-3-sonnet, atau biarkan kosong"
-                  />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    Gunakan koma sebagai pemisah. Kosongkan atau isi <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded font-bold text-rose-500 dark:text-rose-400">*</code> untuk mengizinkan semua model.
-                  </p>
+                  
+                  {/* Model Selector Container */}
+                  <div className="bg-slate-50 dark:bg-[#0f172a]/30 border border-slate-200 dark:border-slate-700/60 rounded-2xl overflow-hidden shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)]">
+                    
+                    {/* Header: Unlimited Access Toggle */}
+                    <label className="flex items-center justify-between p-4 bg-white dark:bg-[#151e32]/50 border-b border-slate-200 dark:border-slate-700/60 cursor-pointer group hover:bg-slate-50 dark:hover:bg-[#1e293b]/50 transition-colors">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-slate-800 dark:text-white text-sm group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">Akses Tanpa Batas (Semua Model)</span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">Berikan akses penuh ke semua model yang tersedia di gateway.</span>
+                      </div>
+                      <div className="relative flex items-center justify-center shrink-0 ml-4">
+                        <input
+                          type="checkbox"
+                          className="w-5 h-5 rounded-md border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 focus:ring-blue-500 cursor-pointer accent-blue-600 outline-none"
+                          checked={!!formData.allowedModels?.includes("*")}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({ ...formData, allowedModels: ["*"] });
+                            } else {
+                              setFormData({ ...formData, allowedModels: [] });
+                            }
+                          }}
+                        />
+                      </div>
+                    </label>
+                    
+                    {/* Models List Area (no nested scrollbar) */}
+                    <div className={`p-2 transition-opacity duration-300 ${formData.allowedModels?.includes("*") ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                        {availableModels.map((modelName) => {
+                          const isChecked = !formData.allowedModels?.includes("*") && !!formData.allowedModels?.includes(modelName);
+                          return (
+                            <label key={modelName} className={`flex items-center space-x-3 p-2.5 rounded-xl transition-all cursor-pointer border ${isChecked ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800/30' : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:border-slate-200 dark:hover:border-slate-700/50'}`}>
+                              <div className="relative flex items-center justify-center shrink-0">
+                                <input
+                                  type="checkbox"
+                                  className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 focus:ring-blue-500 cursor-pointer accent-blue-600 outline-none"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    let newModels = [...(formData.allowedModels || [])].filter(m => m !== "*");
+                                    if (e.target.checked) {
+                                      newModels.push(modelName);
+                                    } else {
+                                      newModels = newModels.filter(m => m !== modelName);
+                                    }
+                                    setFormData({ ...formData, allowedModels: newModels });
+                                  }}
+                                />
+                              </div>
+                              <span className={`text-sm font-medium tracking-tight truncate ${isChecked ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'}`}>{modelName}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      
+                      {availableModels.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
+                            <RefreshCw className="w-4 h-4 animate-spin text-slate-500" />
+                          </div>
+                          <p className="text-xs font-semibold">Mengambil daftar model...</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="pt-4 flex justify-end space-x-3 border-t border-slate-100 dark:border-slate-800 mt-6">
+                <div className="pt-6 flex justify-end space-x-3 border-t border-slate-100 dark:border-slate-800/60 mt-8">
                   <button
                     type="button"
                     onClick={() => {
