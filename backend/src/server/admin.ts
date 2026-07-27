@@ -146,8 +146,8 @@ adminRouter.get("/providers", async (req: Request, res: Response) => {
       headers["x-api-key"] = apiKey;
     }
 
-    // Mengambil data provider dan model secara live dari Kroma AI
-    const kromaRes = await fetch(`${KROMA_API_URL}/v1/providers/`, {
+    // Mengambil data provider dan model secara live dari Kroma AI (now OpenAI compatible)
+    const kromaRes = await fetch(`${KROMA_API_URL}/v1/models`, {
       method: "GET",
       headers
     });
@@ -157,7 +157,25 @@ adminRouter.get("/providers", async (req: Request, res: Response) => {
     }
 
     const data = await kromaRes.json();
-    res.json(data);
+    
+    // Transform OpenAI format back to the old KroomBridge provider structure for the UI
+    const providersMap: Record<string, any> = {};
+    if (data.data && Array.isArray(data.data)) {
+      data.data.forEach((m: any) => {
+        if (!m.id) return;
+        const providerName = m.owned_by || "Kroma AI";
+        if (!providersMap[providerName]) {
+           providersMap[providerName] = {
+             id: providerName.toLowerCase().replace(/\s+/g, '-'),
+             name: providerName,
+             models: []
+           };
+        }
+        providersMap[providerName].models.push(m.id);
+      });
+    }
+    
+    res.json({ data: Object.values(providersMap) });
   } catch (error: any) {
     console.error("[Admin API] Error fetching live Kroma providers:", error.message);
     res.status(500).json({ error: error.message });

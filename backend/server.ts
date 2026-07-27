@@ -9,6 +9,7 @@ import { authRouter } from "./src/server/auth.js";
 import { adminRouter } from "./src/server/admin.js";
 import { gatewayRouter } from "./src/server/gateway.js";
 import { integrationRouter } from "./src/server/integration.js";
+import { v1Router } from "./src/server/v1Router.js";
 import { db, initMySQL } from "./src/server/db.js";
 import { broadcast } from "./src/server/eventBus.js";
 import { gpuRouter } from "./src/server/gpuMetrics.js";
@@ -494,6 +495,7 @@ async function startServer() {
   app.use("/api/gpu", gpuRouter);
   app.use("/api/events", eventRouter);
   app.use("/gateway", gatewayRouter);
+  app.use("/v1", v1Router);
 
   // ─── 404 Handler untuk /api/* ─────────────────────────────
   app.use("/api/*", (req: Request, res: Response) => {

@@ -38,43 +38,6 @@ setInterval(
 // Map: clientId → requestsInLastSecond
 const anomalyMap = new Map<string, { count: number; resetAt: number }>();
 
-// ─── Kroma AI Models Cache ────────────────────────────────
-let cachedKromaModels: Record<string, string> = {};
-let lastKromaModelsFetch = 0;
-
-async function getKromaModelsMap(kromaApiKey: string, apiUrl: string): Promise<Record<string, string>> {
-  // Hanya skip fetch jika cache terisi DAN belum expired 5 menit
-  const cacheIsValid = Object.keys(cachedKromaModels).length > 0 && (Date.now() - lastKromaModelsFetch < 5 * 60 * 1000);
-  if (cacheIsValid) return cachedKromaModels;
-
-  try {
-    const res = await fetch(`${apiUrl}/v1/providers/`, {
-      headers: kromaApiKey ? { "Authorization": `Bearer ${kromaApiKey}`, "x-api-key": kromaApiKey } : {}
-    });
-    if (res.ok) {
-      const json = await res.json();
-      const newMap: Record<string, string> = {};
-      if (json.data && Array.isArray(json.data)) {
-        json.data.forEach((p: any) => {
-          if (p.models && Array.isArray(p.models)) {
-            p.models.forEach((m: string) => {
-               const cleanName = m.split("/").pop();
-               if (cleanName) newMap[cleanName] = m;
-            });
-          }
-        });
-      }
-      if (Object.keys(newMap).length > 0) {
-        cachedKromaModels = newMap;
-        lastKromaModelsFetch = Date.now();
-        console.log(`[Gateway] Kroma model map refreshed: ${Object.keys(newMap).length} models cached.`);
-      }
-    }
-  } catch (e) {
-    console.warn("[Gateway] Gagal fetch Kroma model list:", (e as Error).message);
-  }
-  return cachedKromaModels;
-}
 
 // ============================================================
 // GATEWAY MIDDLEWARE
@@ -291,58 +254,6 @@ export const gatewayMiddleware = (
     next();
 };
 
-// ============================================================
-// SMART MODEL MAPPING
-// ============================================================
-// Cache in-memory untuk menyimpan mapping (e.g. qwen3.5-9b -> pc-putih/lmstudio/qwen3.5-9b)
-let modelMappingCache: Record<string, string> = {};
-let lastModelSync = 0;
-
-async function getFullModelName(shortName: string): Promise<string> {
-  // Jika nama model sudah memiliki garis miring, asumsikan itu sudah nama lengkap
-  if (shortName.includes("/")) return shortName;
-
-  // Gunakan cache jika masih baru (kurang dari 1 jam)
-  if (modelMappingCache[shortName] && Date.now() - lastModelSync < 3600000) {
-    return modelMappingCache[shortName];
-  }
-
-  try {
-    const meta = db.getMeta();
-    const apiKey = meta.apiKeys?.find(k => k.provider === 'kroma')?.key || meta.kromaApiKey || process.env.KROMA_API_KEY;
-    const KROMA_API_URL = process.env.KROMA_API_URL || "https://kroma.kroombox.com";
-    
-    if (apiKey) {
-      // Mengambil dari /v1/providers/ karena Kroma AI menyediakan list model disana
-      const res = await fetch(`${KROMA_API_URL}/v1/providers/`, {
-        headers: { "Authorization": `Bearer ${apiKey}`, "x-api-key": apiKey }
-      });
-      
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data)) {
-          modelMappingCache = {};
-          
-          json.data.forEach((provider: any) => {
-            const modelsList = provider.models || [];
-            modelsList.forEach((fullModelName: string) => {
-              const stripped = fullModelName.split("/").pop();
-              if (stripped) {
-                modelMappingCache[stripped] = fullModelName;
-              }
-            });
-          });
-          
-          lastModelSync = Date.now();
-          return modelMappingCache[shortName] || shortName;
-        }
-      }
-    }
-  } catch (err: any) {
-    console.error("[SmartMapping] Gagal melakukan sinkronisasi model:", err.message);
-  }
-  return shortName;
-}
 
 // ============================================================
 // GATEWAY ROUTER
@@ -373,10 +284,30 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     )
     .sort((a, b) => b.path.length - a.path.length)[0];
 
-  // ── Smart Model Mapping ──
-  if (req.body?.model && typeof req.body.model === "string") {
-    req.body.model = await getFullModelName(req.body.model);
-  }
+
+  const logRequest = (statusCode: number, error?: string) => {
+    const client = db.getClient(clientId);
+    const entry = {
+      timestamp: new Date().toISOString(),
+      clientId: clientId || "unknown",
+      clientName: client?.name,
+      routeId: matchedRoute?.id || "unknown",
+      method: req.method,
+      path: fullPath,
+      statusCode,
+      durationMs: Date.now() - startTime,
+      ipAddress: clientIp,
+      userAgent: req.headers["user-agent"],
+      error,
+    };
+    db.addLog(entry);
+    // Push event realtime ke dashboard yang subscribe SSE
+    try {
+      broadcast({ type: "log:new", data: entry });
+    } catch {
+      /* fail silently — event bus is best-effort */
+    }
+  };
 
   // ── Cek Model yang Diizinkan Paket ──
   if (req.body?.model && pkg.allowedModels && !pkg.allowedModels.includes("*")) {
@@ -442,30 +373,6 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     }
   }
 
-  const logRequest = (statusCode: number, error?: string) => {
-    const client = db.getClient(clientId);
-    const entry = {
-      timestamp: new Date().toISOString(),
-      clientId: clientId || "unknown",
-      clientName: client?.name,
-      routeId: matchedRoute?.id || "unknown",
-      method: req.method,
-      path: fullPath,
-      statusCode,
-      durationMs: Date.now() - startTime,
-      ipAddress: clientIp,
-      userAgent: req.headers["user-agent"],
-      error,
-    };
-    db.addLog(entry);
-    // Push event realtime ke dashboard yang subscribe SSE
-    try {
-      broadcast({ type: "log:new", data: entry });
-    } catch {
-      /* fail silently — event bus is best-effort */
-    }
-  };
-
   if (!matchedRoute) {
     logRequest(404, "Route tidak ditemukan");
     return res.status(404).json({
@@ -525,49 +432,6 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     const kromaApiKey = customUpstreamKey || meta.apiKeys?.find(k => k.provider === 'kroma')?.key || meta.kromaApiKey || process.env.KROMA_API_KEY;
     const KROMA_API_URL = process.env.KROMA_API_URL || "https://kroma.kroombox.com";
 
-    // ── Intercept /models Endpoint (Simulate OpenAI Compatibility for Kroma AI) ──
-    if (remainder.match(/^\/?(v1\/)?models\/?$/i)) {
-      if (matchedRoute.upstreamUrl.startsWith(KROMA_API_URL)) {
-        try {
-          const resModels = await fetch(`${KROMA_API_URL}/v1/providers/`, {
-             headers: kromaApiKey ? { "Authorization": `Bearer ${kromaApiKey}`, "x-api-key": kromaApiKey } : {}
-          });
-          if (resModels.ok) {
-             const json = await resModels.json();
-             let allModels: any[] = [];
-             const disabled = meta.disabledModels || [];
-             if (json.data && Array.isArray(json.data)) {
-                json.data.forEach((p: any) => {
-                   if (p.models && Array.isArray(p.models)) {
-                      p.models.forEach((m: string) => {
-                         const cleanName = m.split("/").pop();
-                         if (cleanName && !disabled.includes(cleanName)) {
-                            // --- Terapkan Filter Berdasarkan Paket Klien ---
-                            const isUnlimited = !pkg.allowedModels || pkg.allowedModels.includes("*");
-                            const isAllowed = isUnlimited || pkg.allowedModels.some((allowedModel: string) => 
-                              cleanName === allowedModel
-                            );
-                            
-                            if (isAllowed) {
-                              allModels.push({
-                                 id: cleanName,
-                                 object: "model",
-                                 created: Math.floor(Date.now() / 1000),
-                                 owned_by: p.name || "kroma-ai"
-                              });
-                            }
-                         }
-                      });
-                   }
-                });
-             }
-             return res.status(200).json({ object: "list", data: allModels });
-          }
-        } catch (e: any) {
-           console.error("[Gateway] Gagal intercept /models Kroma:", e.message);
-        }
-      }
-    }
 
     // ── Build Request Headers ──
     const upstreamHeaders: Record<string, string> = {
@@ -704,19 +568,6 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       processedBody.stream_options = { include_usage: true };
     }
 
-    // ── Restore Original Model Prefix for Kroma AI ──
-    if (
-      matchedRoute.upstreamUrl.startsWith(KROMA_API_URL) &&
-      typeof processedBody === "object" &&
-      processedBody !== null &&
-      typeof processedBody.model === "string"
-    ) {
-      const requestModel = processedBody.model.split("/").pop() || processedBody.model;
-      const kromaMap = await getKromaModelsMap(kromaApiKey || "", KROMA_API_URL);
-      if (kromaMap[requestModel]) {
-        processedBody.model = kromaMap[requestModel];
-      }
-    }
 
     // ── Strip llama.cpp-specific params untuk LMStudio/Ollama ──
     // Hermes dan klien llama.cpp lainnya mengirim parameter seperti n_keep, n_ctx, dll.
@@ -975,28 +826,26 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         jsonResponse = mappedResponse;
       }
 
-      // ── Intercept /models Endpoint to Strip Prefix ──
+      // ── Intercept /models Endpoint to Strip Prefix & Filter ──
       if (req.path.match(/\/models\/?$/i)) {
         if (jsonResponse.data && Array.isArray(jsonResponse.data)) {
-          jsonResponse.data = jsonResponse.data.map((m: any) => {
-            if (m.id && typeof m.id === "string") {
-              m.id = m.id.split("/").pop();
-            }
-            return m;
+          const meta = db.getMeta();
+          const disabled = meta.disabledModels || [];
+          
+          jsonResponse.data = jsonResponse.data.filter((m: any) => {
+            if (!m.id || typeof m.id !== "string") return false;
+            
+            const cleanName = m.id.split("/").pop() || "";
+            m.id = cleanName; // Strip prefix
+            
+            if (disabled.includes(cleanName)) return false;
+            
+            const isUnlimited = !pkg.allowedModels || pkg.allowedModels.includes("*");
+            return isUnlimited || pkg.allowedModels.some((allowedModel: string) => 
+              cleanName === allowedModel || cleanName.endsWith("/" + allowedModel)
+            );
           });
         }
-      }
-
-      // ── Strip model prefix dari response chat/completions ──
-      // Kroma kadang mengembalikan model dengan full path di response body.
-      // Hermes bisa jadi bingung jika model di response != model yang dikirim.
-      if (
-        typeof jsonResponse === "object" &&
-        jsonResponse !== null &&
-        typeof jsonResponse.model === "string" &&
-        jsonResponse.model.includes("/")
-      ) {
-        jsonResponse.model = jsonResponse.model.split("/").pop();
       }
 
       // ── Normalisasi Error Response ke format OpenAI ──

@@ -315,16 +315,14 @@ function computeEndpointHealth(
 
 function getUpstreamMeta(path: string) {
   const p = path.toLowerCase();
-  if (p.includes("wa") || p.includes("whatsapp"))
-    return {
-      icon: MessageSquare,
-      label: "WA API",
-      glow: "shadow-emerald-500/30",
-    };
-  if (p.includes("chat") || p.includes("llm") || p.includes("gpt"))
-    return { icon: Bot, label: "AI Chat", glow: "shadow-sky-500/30" };
+  if (p.includes("chat") || p.includes("llm") || p.includes("gpt") || p.includes("completions"))
+    return { icon: Bot, label: "Chat API", glow: "shadow-sky-500/30" };
+  if (p.includes("model"))
+    return { icon: Server, label: "Models API", glow: "shadow-emerald-500/30" };
+  if (p.includes("embed"))
+    return { icon: Layers, label: "Embed API", glow: "shadow-blue-500/30" };
   if (p.includes("image") || p.includes("img") || p.includes("vision"))
-    return { icon: ImageIcon, label: "AI Image", glow: "shadow-amber-500/30" };
+    return { icon: ImageIcon, label: "Image API", glow: "shadow-amber-500/30" };
   if (p.includes("db") || p.includes("data"))
     return { icon: Database, label: "Database", glow: "shadow-blue-500/30" };
   if (p.includes("auth") || p.includes("token"))
@@ -1668,9 +1666,9 @@ export default function DashboardView({
                 {(stats.requestsPerRoute.length > 0
                   ? stats.requestsPerRoute.slice(0, 3)
                   : [
-                      { path: "/wa", count: 0 },
-                      { path: "/chat", count: 0 },
-                      { path: "/image", count: 0 },
+                      { path: "/v1/chat/completions", count: 0 },
+                      { path: "/v1/models", count: 0 },
+                      { path: "/v1/embeddings", count: 0 },
                     ]
                 ).map((route, i) => {
                   const meta = getUpstreamMeta(route.path);

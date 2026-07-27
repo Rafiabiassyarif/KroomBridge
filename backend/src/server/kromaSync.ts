@@ -12,10 +12,11 @@ export const syncKromaRoutes = async () => {
 
   console.log("[KromaSync] Memulai sinkronisasi model dari Kroma AI...");
   try {
-    const res = await fetch(`${KROMA_API_URL}/api/apis`, {
+    const res = await fetch(`${KROMA_API_URL}/v1/models`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
         "x-api-key": apiKey
       }
     });
@@ -24,28 +25,33 @@ export const syncKromaRoutes = async () => {
       throw new Error(`Gagal mengambil data dari Kroma AI: ${res.statusText}`);
     }
 
-    const models = await res.json();
+    const json = await res.json();
+    const models = json.data || [];
     console.log(`[KromaSync] Ditemukan ${models.length} model Kroma AI.`);
 
     const existingRoutes = db.getRoutes();
     let updatedCount = 0;
     let addedCount = 0;
 
-    for (const model of models) {
-      const endpoint = model.endpoint.startsWith('/') ? model.endpoint : `/${model.endpoint}`;
-      const upstreamUrl = `${KROMA_API_URL}${endpoint}`;
-      // Misal endpoint /v1/chat/completions -> gateway /gateway/kroma/v1/chat/completions
-      const gatewayPath = `/gateway/kroma${endpoint}`;
+    const standardEndpoints = [
+      { path: "/v1/chat/completions", desc: "Kroma AI Chat Completions" },
+      { path: "/v1/models", desc: "Kroma AI Models" },
+    ];
+
+    for (const ep of standardEndpoints) {
+      const upstreamUrl = `${KROMA_API_URL}${ep.path}`;
+      const gatewayPath = `/gateway/kroma${ep.path}`;
 
       const existingRoute = existingRoutes.find(r => r.path === gatewayPath);
 
       const routePayload: Partial<Route> & Omit<Route, "id" | "createdAt"> = {
         path: gatewayPath,
         upstreamUrl: upstreamUrl,
-        description: `Model Kroma AI: ${model.name} (${model.type}) - ${model.description}`,
+        description: ep.desc,
         isActive: true,
-        method: "ALL", // atau bisa model.type == 'text-to-image' ? 'POST' : 'POST' (tapi biarkan ALL agar fleksibel)
+        method: "ALL",
         headers: {
+          "Authorization": `Bearer ${apiKey}`,
           "x-api-key": apiKey
         },
       };
