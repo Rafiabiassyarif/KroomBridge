@@ -310,7 +310,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
   };
 
   // ── Cek Model yang Diizinkan Paket ──
-  if (req.body?.model && pkg.allowedModels && !pkg.allowedModels.includes("*")) {
+  if (req.body?.model && pkg.allowedModels && pkg.allowedModels.length > 0 && !pkg.allowedModels.includes("*")) {
     const requestedModel = req.body.model;
     const isModelAllowed = pkg.allowedModels.some((m: string) => 
       requestedModel === m || requestedModel.endsWith("/" + m) || m.endsWith("/" + requestedModel)
@@ -836,11 +836,11 @@ gatewayRouter.use(async (req: Request, res: Response) => {
             if (!m.id || typeof m.id !== "string") return false;
             
             const cleanName = m.id.split("/").pop() || "";
-            m.id = cleanName; // Strip prefix
+            // Do NOT strip prefix from m.id so clients can request the full ID.
             
             if (disabled.includes(cleanName)) return false;
             
-            const isUnlimited = !pkg.allowedModels || pkg.allowedModels.includes("*");
+            const isUnlimited = !pkg.allowedModels || pkg.allowedModels.length === 0 || pkg.allowedModels.includes("*");
             return isUnlimited || pkg.allowedModels.some((allowedModel: string) => 
               cleanName === allowedModel || cleanName.endsWith("/" + allowedModel)
             );

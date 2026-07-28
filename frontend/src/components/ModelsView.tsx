@@ -9,7 +9,8 @@ import {
   AlertCircle,
   ArrowUp,
   ArrowDown,
-  Power
+  Power,
+  Filter
 } from "lucide-react";
 
 
@@ -26,6 +27,7 @@ export default function ModelsView() {
   const [syncStatus, setSyncStatus] = useState<"idle" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -152,11 +154,17 @@ export default function ModelsView() {
     }
   };
 
-  // Apply sorting
+  // Apply sorting and filtering
   const sortedModels = React.useMemo(() => {
-    let sortableModels = [...activeModels];
+    let processableModels = [...activeModels];
+    
+    // Filter by provider
+    if (selectedProvider) {
+      processableModels = processableModels.filter(m => m.provider === selectedProvider);
+    }
+
     if (sortConfig !== null) {
-      sortableModels.sort((a, b) => {
+      processableModels.sort((a, b) => {
         if (a[sortConfig.key] < b[sortConfig.key]) {
           return sortConfig.direction === "asc" ? -1 : 1;
         }
@@ -166,8 +174,12 @@ export default function ModelsView() {
         return 0;
       });
     }
-    return sortableModels;
-  }, [activeModels, sortConfig]);
+    return processableModels;
+  }, [activeModels, sortConfig, selectedProvider]);
+
+  const uniqueProviders = React.useMemo(() => {
+    return Array.from(new Set(activeModels.map((m) => m.provider)));
+  }, [activeModels]);
 
   const SortIcon = ({ columnKey }: { columnKey: "name" | "multiplier" }) => {
     if (sortConfig?.key !== columnKey) return <ArrowUp className="w-3 h-3 text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />;
@@ -235,6 +247,26 @@ export default function ModelsView() {
             </p>
           </div>
           <div className="flex items-center space-x-3">
+            {uniqueProviders.length > 0 && (
+              <div className="relative flex items-center">
+                <div className="absolute left-3 pointer-events-none text-slate-400">
+                  <Filter className="w-4 h-4" />
+                </div>
+                <select
+                  value={selectedProvider || ""}
+                  onChange={(e) => setSelectedProvider(e.target.value || null)}
+                  className="appearance-none pl-9 pr-10 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
+                >
+                  <option value="">Semua Provider</option>
+                  {uniqueProviders.map(provider => (
+                    <option key={provider} value={provider}>{provider}</option>
+                  ))}
+                </select>
+                <div className="absolute right-3 pointer-events-none text-slate-400">
+                  <ArrowDown className="w-4 h-4" />
+                </div>
+              </div>
+            )}
             {hasChanges && (
               <button
                 onClick={saveChanges}
