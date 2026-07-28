@@ -624,6 +624,29 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       }
     }
 
+    // ── Polyfill Streaming & Parameter Stripping untuk Kroma MVP (Command Code Go) ──
+    let polyfillStreamForClient = false;
+    if (
+      typeof processedBody === "object" &&
+      processedBody !== null &&
+      typeof processedBody.model === "string" &&
+      processedBody.model.includes("commandcode-go")
+    ) {
+      if (processedBody.stream === true) {
+        // Upstream Kroma untuk model ini belum support streaming
+        processedBody.stream = false;
+        polyfillStreamForClient = true;
+      }
+      // Hapus stream_options jika stream = false (karena openai API akan menolak)
+      if (processedBody.stream === false && processedBody.stream_options) {
+        delete processedBody.stream_options;
+      }
+      // Kroma MVP commandcode-go mungkin tidak support response_format untuk saat ini
+      if (processedBody.response_format) {
+        delete processedBody.response_format;
+      }
+    }
+
     // ── Build Fetch Options ──
     const fetchOptions: RequestInit = {
       method: req.method,
@@ -875,6 +898,46 @@ gatewayRouter.use(async (req: Request, res: Response) => {
             }
           };
         }
+      }
+
+      // ── Stream Polyfill jika client minta stream tapi upstream tidak support ──
+      if (polyfillStreamForClient && upstreamResponse.status >= 200 && upstreamResponse.status < 300) {
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        
+        const chunk = {
+          id: jsonResponse.id || "chatcmpl-" + Date.now(),
+          object: "chat.completion.chunk",
+          created: jsonResponse.created || Math.floor(Date.now() / 1000),
+          model: jsonResponse.model || processedBody.model,
+          choices: [
+            {
+              index: 0,
+              delta: {
+                role: "assistant",
+                content: jsonResponse.choices?.[0]?.message?.content || ""
+              },
+              finish_reason: null
+            }
+          ]
+        };
+        
+        const endChunk = {
+          ...chunk,
+          choices: [
+            {
+              index: 0,
+              delta: {},
+              finish_reason: jsonResponse.choices?.[0]?.finish_reason || "stop"
+            }
+          ]
+        };
+        
+        res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+        res.write(`data: ${JSON.stringify(endChunk)}\n\n`);
+        res.write("data: [DONE]\n\n");
+        return res.end();
       }
 
       return res.status(upstreamResponse.status).json(jsonResponse);
