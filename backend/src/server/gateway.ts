@@ -104,12 +104,12 @@ export const gatewayMiddleware = (
   // ── 4. Verifikasi API Key atau JWT Access Token ──
   const authHeader = req.headers.authorization;
   const xApiKey = req.headers["x-api-key"] || req.headers["api-key"];
-  
+
   let token = "";
   if (authHeader && authHeader.startsWith("Bearer ")) {
-    token = authHeader.split(" ")[1];
+    token = authHeader.split(" ")[1]?.trim() || "";
   } else if (typeof xApiKey === "string") {
-    token = xApiKey;
+    token = xApiKey.trim();
   }
 
   if (!token) {
@@ -126,7 +126,7 @@ export const gatewayMiddleware = (
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as any;
       client = db.getClient(decoded.clientId);
-      
+
       if (client) {
         // Reject token kalau secret key udah di-rotasi setelah token issued.
         const currentKeyVersion = client.keyVersion ?? 1;
@@ -167,101 +167,101 @@ export const gatewayMiddleware = (
   }
 
   // ── 5. Cek Kuota Bulanan ──
-    const activeQuota =
-      client.customQuota != null ? client.customQuota : pkg.monthlyQuota;
-    if (client.usageThisMonth >= activeQuota) {
-      if (!pkg.allowOverage) {
-        return res.status(429).json({
-          error: "Kuota bulanan Anda sudah habis.",
-          hint: "Silakan hubungi admin untuk upgrade paket atau topup kuota.",
-          usage: client.usageThisMonth,
-          quota: activeQuota,
-        });
-      }
-      // Overage diizinkan, lanjut dengan info peringatan
-      res.setHeader("X-Quota-Status", "overage");
-    }
-
-    // ── 6. Rate Limit per Menit ──
-    const now = Date.now();
-    let limitData = rateLimitMap.get(clientId);
-
-    if (!limitData || now > limitData.resetAt) {
-      limitData = { count: 0, resetAt: now + 60 * 1000 };
-    }
-
-    if (limitData.count >= pkg.maxRequestsPerMinute) {
-      const retryAfter = Math.ceil((limitData.resetAt - now) / 1000);
-      res.setHeader("Retry-After", String(retryAfter));
-      res.setHeader("X-RateLimit-Limit", String(pkg.maxRequestsPerMinute));
-      res.setHeader("X-RateLimit-Remaining", "0");
+  const activeQuota =
+    client.customQuota != null ? client.customQuota : pkg.monthlyQuota;
+  if (client.usageThisMonth >= activeQuota) {
+    if (!pkg.allowOverage) {
       return res.status(429).json({
-        error: "Terlalu banyak permintaan. Rate limit terlampaui.",
-        limit: pkg.maxRequestsPerMinute,
-        retry_after_seconds: retryAfter,
+        error: "Kuota bulanan Anda sudah habis.",
+        hint: "Silakan hubungi admin untuk upgrade paket atau topup kuota.",
+        usage: client.usageThisMonth,
+        quota: activeQuota,
       });
     }
+    // Overage diizinkan, lanjut dengan info peringatan
+    res.setHeader("X-Quota-Status", "overage");
+  }
 
-    // ── 7. Anomaly Detection (lebih dari 10x per detik) ──
-    if (security.rateLimitAnomalyDetection) {
-      let anomaly = anomalyMap.get(clientId);
-      if (!anomaly || now > anomaly.resetAt) {
-        anomaly = { count: 0, resetAt: now + 1000 };
-      }
-      anomaly.count++;
-      anomalyMap.set(clientId, anomaly);
+  // ── 6. Rate Limit per Menit ──
+  const now = Date.now();
+  let limitData = rateLimitMap.get(clientId);
 
-      if (anomaly.count > 20) {
-        console.warn(
-          `[ANOMALY] Klien ${clientId} (IP: ${ipStr}) membuat ${anomaly.count} permintaan dalam 1 detik. Memblokir IP otomatis...`,
-        );
-        
-        // Blokir IP otomatis
-        db.addToIpDenylist(ipStr, `Otomatis diblokir: Anomali Rate Limit (${anomaly.count} req/dtk) dari klien ${clientId}`);
-        broadcast({ type: "security:change", data: null });
-        
-        return res.status(403).json({
-          error: "Akses diblokir otomatis karena aktivitas anomali berlebih. IP Anda telah dimasukkan ke Denylist.",
-        });
-      }
-    }
+  if (!limitData || now > limitData.resetAt) {
+    limitData = { count: 0, resetAt: now + 60 * 1000 };
+  }
 
-    // ── 8. Cek Akses Endpoint (Permission) ──
-    const requestedPath = req.baseUrl + req.path;
-    const hasAccess = pkg.allowedEndpoints.some(
-      (ep) =>
-        ep === "*" || requestedPath === ep || requestedPath.startsWith(ep),
-    );
-    if (!hasAccess) {
-      return res.status(403).json({
-        error: `Paket Anda (${pkg.name}) tidak memiliki akses ke endpoint ${requestedPath}.`,
-        allowedEndpoints: pkg.allowedEndpoints,
-        hint: "Upgrade paket untuk akses lebih luas.",
-      });
-    }
-
-    // ── Increment & Inject ──
-    limitData.count += 1;
-    rateLimitMap.set(clientId, limitData);
-
-    // Set headers informatif
+  if (limitData.count >= pkg.maxRequestsPerMinute) {
+    const retryAfter = Math.ceil((limitData.resetAt - now) / 1000);
+    res.setHeader("Retry-After", String(retryAfter));
     res.setHeader("X-RateLimit-Limit", String(pkg.maxRequestsPerMinute));
-    res.setHeader(
-      "X-RateLimit-Remaining",
-      String(pkg.maxRequestsPerMinute - limitData.count),
-    );
-    res.setHeader(
-      "X-RateLimit-Reset",
-      String(Math.ceil(limitData.resetAt / 1000)),
-    );
-    res.setHeader("X-Client-Id", clientId);
-    res.setHeader("X-Package", pkg.name);
+    res.setHeader("X-RateLimit-Remaining", "0");
+    return res.status(429).json({
+      error: "Terlalu banyak permintaan. Rate limit terlampaui.",
+      limit: pkg.maxRequestsPerMinute,
+      retry_after_seconds: retryAfter,
+    });
+  }
 
-    (req as any).kroomboxClientId = clientId;
-    (req as any).kroomboxClientIp = ipStr;
-    (req as any).kroomboxPackage = pkg;
+  // ── 7. Anomaly Detection (lebih dari 10x per detik) ──
+  if (security.rateLimitAnomalyDetection) {
+    let anomaly = anomalyMap.get(clientId);
+    if (!anomaly || now > anomaly.resetAt) {
+      anomaly = { count: 0, resetAt: now + 1000 };
+    }
+    anomaly.count++;
+    anomalyMap.set(clientId, anomaly);
 
-    next();
+    if (anomaly.count > 20) {
+      console.warn(
+        `[ANOMALY] Klien ${clientId} (IP: ${ipStr}) membuat ${anomaly.count} permintaan dalam 1 detik. Memblokir IP otomatis...`,
+      );
+
+      // Blokir IP otomatis
+      db.addToIpDenylist(ipStr, `Otomatis diblokir: Anomali Rate Limit (${anomaly.count} req/dtk) dari klien ${clientId}`);
+      broadcast({ type: "security:change", data: null });
+
+      return res.status(403).json({
+        error: "Akses diblokir otomatis karena aktivitas anomali berlebih. IP Anda telah dimasukkan ke Denylist.",
+      });
+    }
+  }
+
+  // ── 8. Cek Akses Endpoint (Permission) ──
+  const requestedPath = req.baseUrl + req.path;
+  const hasAccess = pkg.allowedEndpoints.some(
+    (ep) =>
+      ep === "*" || requestedPath === ep || requestedPath.startsWith(ep),
+  );
+  if (!hasAccess) {
+    return res.status(403).json({
+      error: `Paket Anda (${pkg.name}) tidak memiliki akses ke endpoint ${requestedPath}.`,
+      allowedEndpoints: pkg.allowedEndpoints,
+      hint: "Upgrade paket untuk akses lebih luas.",
+    });
+  }
+
+  // ── Increment & Inject ──
+  limitData.count += 1;
+  rateLimitMap.set(clientId, limitData);
+
+  // Set headers informatif
+  res.setHeader("X-RateLimit-Limit", String(pkg.maxRequestsPerMinute));
+  res.setHeader(
+    "X-RateLimit-Remaining",
+    String(pkg.maxRequestsPerMinute - limitData.count),
+  );
+  res.setHeader(
+    "X-RateLimit-Reset",
+    String(Math.ceil(limitData.resetAt / 1000)),
+  );
+  res.setHeader("X-Client-Id", clientId);
+  res.setHeader("X-Package", pkg.name);
+
+  (req as any).kroomboxClientId = clientId;
+  (req as any).kroomboxClientIp = ipStr;
+  (req as any).kroomboxPackage = pkg;
+
+  next();
 };
 
 
@@ -321,7 +321,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
   // ── Cek Model yang Diizinkan Paket ──
   if (req.body?.model && pkg.allowedModels && pkg.allowedModels.length > 0 && !pkg.allowedModels.includes("*")) {
     const requestedModel = req.body.model;
-    const isModelAllowed = pkg.allowedModels.some((m: string) => 
+    const isModelAllowed = pkg.allowedModels.some((m: string) =>
       requestedModel === m || requestedModel.endsWith("/" + m) || m.endsWith("/" + requestedModel)
     );
     if (!isModelAllowed) {
@@ -347,14 +347,14 @@ gatewayRouter.use(async (req: Request, res: Response) => {
 
   // ── Calculate Model Multiplier ──
   let modelMultiplier = 1.0;
-  
+
   // Ambil nama model dari request body jika ada, kalau tidak fallback ke deskripsi route
   const requestModel = req.body?.model;
   const modelStringToParse = typeof requestModel === "string" ? requestModel : matchedRoute?.description;
 
   if (modelStringToParse) {
     const desc = modelStringToParse.toLowerCase();
-    
+
     // Evaluasi open-source models terlebih dahulu agar model 'distilled' 
     // (misal: qwen3.6-35b-claude-opus-distilled) tidak tertukar harganya menjadi mahal.
     if (desc.includes("qwen")) {
@@ -460,7 +460,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       const pathSuffix = matchedRoute.path.replace("/gateway/kroma", ""); // e.g. /v1/chat/completions atau /v1/models
 
       // Pastikan daftar model kedua upstream sudah dimuat
-      ensureModelRegistry().catch(() => {});
+      ensureModelRegistry().catch(() => { });
 
       if (typeof requestedModel === "string" && requestedModel.trim()) {
         const target = resolveRouteTarget(requestedModel);
@@ -741,6 +741,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       let lastParsedModel = "unknown";
 
       let streamBuffer = "";
+      let streamUsage: any = null;
 
       try {
         while (true) {
@@ -755,15 +756,16 @@ gatewayRouter.use(async (req: Request, res: Response) => {
             const lines = streamBuffer.split('\n');
             // Keep the last potentially incomplete line in the buffer
             streamBuffer = lines.pop() || "";
-            
+
             for (const line of lines) {
               if (line.startsWith('data: ') && !line.includes('[DONE]')) {
                 try {
                   const data = JSON.parse(line.slice(6));
                   if (data.id) lastParsedId = data.id;
                   if (data.model) lastParsedModel = data.model;
-                  
+
                   const delta = data.choices?.[0]?.delta;
+                  if (data.usage) streamUsage = data.usage;
                   if (delta?.content) aggregatedContent += delta.content;
                   if (delta?.reasoning_content) aggregatedReasoning += delta.reasoning_content;
                 } catch (e) {
@@ -776,7 +778,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
             streamBuffer += chunk;
             const lines = streamBuffer.split('\n');
             streamBuffer = lines.pop() || "";
-            
+
             let outputLines = [];
             for (let i = 0; i < lines.length; i++) {
               let line = lines[i];
@@ -786,10 +788,11 @@ gatewayRouter.use(async (req: Request, res: Response) => {
               }
               try {
                 const parsed = JSON.parse(line.slice(6));
+                if (parsed.usage) streamUsage = parsed.usage;
                 const delta = parsed.choices?.[0]?.delta;
                 if (delta && ('reasoning_content' in delta)) {
                   delete delta.reasoning_content; // Hapus data thinking
-                  
+
                   // Jika setelah reasoning dihapus, tidak ada teks asli ('content') sama sekali,
                   // kita lewati baris ini agar tidak mengirim event kosong.
                   if (!delta.content && Object.keys(delta).length === 0) {
@@ -805,7 +808,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
                 outputLines.push(line);
               }
             }
-            
+
             if (outputLines.length > 0) {
               res.write(Buffer.from(outputLines.join('\n') + '\n'));
             }
@@ -844,15 +847,13 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         let inputTokens = 0;
         let outputTokens = 0;
         let baseTokens = 0;
-        const totalMatch = fullText.match(/"total_tokens":\s*(\d+)/);
-        const promptMatch = fullText.match(/"prompt_tokens":\s*(\d+)/);
-        const completionMatch = fullText.match(/"completion_tokens":\s*(\d+)/);
         
-        if (totalMatch) {
-          baseTokens = parseInt(totalMatch[1], 10);
-          inputTokens = promptMatch ? parseInt(promptMatch[1], 10) : 0;
-          outputTokens = completionMatch ? parseInt(completionMatch[1], 10) : 0;
+        if (streamUsage?.total_tokens) {
+          baseTokens = streamUsage.total_tokens;
+          inputTokens = streamUsage.prompt_tokens || 0;
+          outputTokens = streamUsage.completion_tokens || 0;
         } else {
+          // Fallback to estimation since regex is vulnerable to user prompts
           inputTokens = estimateTokens(processedBody);
           const finalOutput = (aggregatedContent || aggregatedReasoning) ? (aggregatedContent + aggregatedReasoning) : fullText;
           outputTokens = estimateTokens(finalOutput);
@@ -915,17 +916,17 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         if (jsonResponse.data && Array.isArray(jsonResponse.data)) {
           const meta = db.getMeta();
           const disabled = meta.disabledModels || [];
-          
+
           jsonResponse.data = jsonResponse.data.filter((m: any) => {
             if (!m.id || typeof m.id !== "string") return false;
-            
+
             const cleanName = m.id.split("/").pop() || "";
             // Do NOT strip prefix from m.id so clients can request the full ID.
-            
+
             if (disabled.includes(cleanName)) return false;
-            
+
             const isUnlimited = !pkg.allowedModels || pkg.allowedModels.length === 0 || pkg.allowedModels.includes("*");
-            return isUnlimited || pkg.allowedModels.some((allowedModel: string) => 
+            return isUnlimited || pkg.allowedModels.some((allowedModel: string) =>
               cleanName === allowedModel || cleanName.endsWith("/" + allowedModel)
             );
           });
@@ -966,7 +967,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         res.setHeader("Content-Type", "text/event-stream");
         res.setHeader("Cache-Control", "no-cache");
         res.setHeader("Connection", "keep-alive");
-        
+
         const chunk = {
           id: jsonResponse.id || "chatcmpl-" + Date.now(),
           object: "chat.completion.chunk",
@@ -983,7 +984,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
             }
           ]
         };
-        
+
         const endChunk = {
           ...chunk,
           choices: [
@@ -994,7 +995,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
             }
           ]
         };
-        
+
         res.write(`data: ${JSON.stringify(chunk)}\n\n`);
         res.write(`data: ${JSON.stringify(endChunk)}\n\n`);
         res.write("data: [DONE]\n\n");
@@ -1039,7 +1040,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
 
     if (error.name === "AbortError" || error.name === "TimeoutError") {
       statusCode = 504;
-      message = matchedRoute.timeout 
+      message = matchedRoute.timeout
         ? `Upstream server timeout setelah ${matchedRoute.timeout}ms.`
         : "Upstream server timeout atau request dibatalkan.";
     } else if (error.code === "ECONNREFUSED") {
