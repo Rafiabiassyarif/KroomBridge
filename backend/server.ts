@@ -333,7 +333,7 @@ async function startServer() {
       let data: any = text;
       try {
         data = JSON.parse(text);
-      } catch (e) {}
+      } catch (e) { }
 
       // Kalau response itu HTML dengan status 5xx, biasanya itu error page
       // dari Cloudflare/CDN/load-balancer. Parse jadi struktur yang readable

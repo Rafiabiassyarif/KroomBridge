@@ -38,7 +38,7 @@ export default function DeveloperPortal() {
   const [activeTab, setActiveTab] = useState("auth");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   
-  const baseUrl = "https://api-kroombridge.kroombox.com";
+  const baseUrl = "https://kroombridge.kii.lat";
 
   const copy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);

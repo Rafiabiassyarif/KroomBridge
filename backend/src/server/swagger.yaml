@@ -10,7 +10,7 @@ servers:
     description: Production server
     variables:
       appUrl:
-        default: https://api.kroombox.com
+        default: https://kroombridge.kii.lat
         description: Base URL untuk Production
 
 components:

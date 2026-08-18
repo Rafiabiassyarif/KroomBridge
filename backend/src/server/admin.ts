@@ -325,8 +325,8 @@ adminRouter.get("/timeseries", (req: Request, res: Response) => {
       successRate:
         totalRequests > 0
           ? Math.round(
-              ((totalRequests - totalErrors) / totalRequests) * 100 * 100,
-            ) / 100
+            ((totalRequests - totalErrors) / totalRequests) * 100 * 100,
+          ) / 100
           : 100,
     },
   });
@@ -1171,11 +1171,11 @@ adminRouter.patch("/system/meta", (req: Request, res: Response) => {
   if (kromaApiKey !== undefined) {
     updates.kromaApiKey = kromaApiKey;
   }
-  
+
   if (apiKeys !== undefined) {
     updates.apiKeys = apiKeys;
   }
-  
+
   if (disabledModels !== undefined) {
     updates.disabledModels = disabledModels;
   }

@@ -145,9 +145,9 @@ export default function ApiTester() {
     return saved
       ? JSON.parse(saved)
       : [
-          { key: "Content-Type", value: "application/json", active: true },
-          { key: "", value: "", active: false },
-        ];
+        { key: "Content-Type", value: "application/json", active: true },
+        { key: "", value: "", active: false },
+      ];
   });
 
   const [authType, setAuthType] = useState<
@@ -257,7 +257,7 @@ export default function ApiTester() {
   });
   const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
   const [isSnippetModalOpen, setIsSnippetModalOpen] = useState(false);
-  
+
   // Scripts state
   const [preRequestScript, setPreRequestScript] = useState(() => {
     return localStorage.getItem("kroombridge_tester_preReqScript") || "// Pre-request script (JavaScript)\n// Use `request` object to read/modify.\n// e.g. request.headers['X-Timestamp'] = Date.now();\n";
@@ -668,7 +668,7 @@ export default function ApiTester() {
         } catch (err) {
           console.error("Tests script error", err);
         }
-        
+
         await loadHistory();
         return;
       }
@@ -1582,7 +1582,7 @@ export default function ApiTester() {
                   {(() => {
                     let inTk: number | undefined;
                     let outTk: number | undefined;
-                    
+
                     if (response.headers?.["x-tokens-in"] !== undefined || response.headers?.["X-Tokens-In"] !== undefined) {
                       inTk = Number(response.headers["x-tokens-in"] || response.headers["X-Tokens-In"]);
                       outTk = Number(response.headers["x-tokens-out"] || response.headers["X-Tokens-Out"] || 0);
@@ -1594,7 +1594,7 @@ export default function ApiTester() {
                       try {
                         const { bodyPayload } = buildBodyPayload();
                         const reqStr = bodyPayload ? (typeof bodyPayload === 'string' ? bodyPayload : JSON.stringify(bodyPayload)) : "";
-                        
+
                         let resStr = "";
                         if (typeof response.data === 'string' && response.data.includes("data: {")) {
                           const lines = response.data.split("\n");
@@ -1604,7 +1604,7 @@ export default function ApiTester() {
                                 const parsed = JSON.parse(line.slice(6));
                                 const delta = parsed.choices?.[0]?.delta;
                                 resStr += (delta?.content || "") + (delta?.reasoning_content || "");
-                              } catch(e) {}
+                              } catch (e) { }
                             }
                           }
                         } else {
@@ -1670,7 +1670,7 @@ export default function ApiTester() {
                 </button>
               ))}
             </div>
-            
+
             {responseTab === "body" && (
               <label className="flex items-center space-x-2 text-xs font-medium text-slate-400 hover:text-slate-200 cursor-pointer select-none">
                 <span>Pretty-print</span>
@@ -1704,7 +1704,7 @@ export default function ApiTester() {
                   if (typeof parsedData === "string") {
                     try {
                       parsedData = JSON.parse(parsedData);
-                    } catch (e) {}
+                    } catch (e) { }
                   }
 
                   // Deteksi payload proxy error (karena fallback dari streaming yang gagal)
@@ -1717,13 +1717,13 @@ export default function ApiTester() {
                   if (hasError) {
                     const rawErrMsg = typeof errObj === "string" ? errObj : (errObj?.error || errObj?.message || "Unknown Error");
                     const errMsg = typeof rawErrMsg === "object" && rawErrMsg !== null ? JSON.stringify(rawErrMsg) : String(rawErrMsg);
-                    
+
                     const rawProvider = errObj?.provider || errObj?.gateway || (finalStatus >= 500 ? "Server Error" : "Client Error");
                     const provider = typeof rawProvider === "object" && rawProvider !== null ? JSON.stringify(rawProvider) : String(rawProvider);
-                    
+
                     const rawHint = errObj?.hint;
                     const hint = rawHint && typeof rawHint === "object" ? JSON.stringify(rawHint) : rawHint;
-                    
+
                     const rawDetails = errObj?.details || errObj?.upstream || errObj?.route;
                     const details = rawDetails && typeof rawDetails === "object" ? JSON.stringify(rawDetails) : rawDetails;
 
