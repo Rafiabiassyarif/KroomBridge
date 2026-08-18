@@ -2,6 +2,16 @@ import express, { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { db } from "./db.js";
 import { broadcast } from "./eventBus.js";
+import {
+  KROMA_API_URL,
+  NINER_API_URL,
+  getKromaApiKey,
+  getNinerApiKey,
+  ensureModelRegistry,
+  resolveRouteTarget,
+  rewriteModelForUpstream,
+  normalizeModelName,
+} from "./modelRegistry.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "kroombox_super_secret_key_123!";
 
@@ -279,8 +289,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     .filter(
       (r) =>
         fullPath === r.path ||
-        fullPath.startsWith(r.path + "/") ||
-        fullPath.startsWith(r.path),
+        fullPath.startsWith(r.path + "/")
     )
     .sort((a, b) => b.path.length - a.path.length)[0];
 
@@ -428,10 +437,6 @@ gatewayRouter.use(async (req: Request, res: Response) => {
     }
 
     const meta = db.getMeta();
-    const customUpstreamKey = req.headers["x-custom-upstream-key"] as string;
-    const kromaApiKey = customUpstreamKey || meta.apiKeys?.find(k => k.provider === 'kroma')?.key || meta.kromaApiKey || process.env.KROMA_API_KEY;
-    const KROMA_API_URL = process.env.KROMA_API_URL || "https://kroma.kroombox.com";
-
 
     // ── Build Request Headers ──
     const upstreamHeaders: Record<string, string> = {
@@ -439,15 +444,44 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       "X-Forwarded-For": clientIp,
       "X-Client-Id": clientId,
       "X-Gateway": "KroomBridge-API-Gateway/2.0",
-      "User-Agent": req.headers["user-agent"] || "KroomBridge-Gateway/2.0",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", // Spoof browser untuk bypass Cloudflare WAF
       "Accept": req.headers["accept"] || "application/json, text/event-stream",
       // Teruskan custom headers dari konfigurasi route
       ...(matchedRoute.headers || {}),
     };
 
-    if (matchedRoute.upstreamUrl.startsWith(KROMA_API_URL) && kromaApiKey) {
-      upstreamHeaders["Authorization"] = `Bearer ${kromaApiKey}`;
-      upstreamHeaders["x-api-key"] = kromaApiKey;
+    // ── Pilih Upstream berdasarkan MODEL (Smart Routing) ──
+    // Model dari daftar Kroma → kroma.kroombox.com
+    // Model dari daftar 9r    → 9r.kii.lat
+    let isTargeting9r = false;
+
+    if (matchedRoute.path === "/gateway/kroma/v1/chat/completions" || matchedRoute.upstreamUrl.startsWith("https://9r.kii.lat") || matchedRoute.upstreamUrl.startsWith(KROMA_API_URL)) {
+      const requestedModel = req.body?.model || "";
+      const pathSuffix = matchedRoute.path.replace("/gateway/kroma", ""); // e.g. /v1/chat/completions atau /v1/models
+
+      // Pastikan daftar model kedua upstream sudah dimuat
+      ensureModelRegistry().catch(() => {});
+
+      if (typeof requestedModel === "string" && requestedModel.trim()) {
+        const target = resolveRouteTarget(requestedModel);
+        targetUrl = `${target.url}${pathSuffix}${remainder}${queryString}`;
+        isTargeting9r = target.is9r;
+      } else {
+        // Tanpa model (misal /v1/models) → default ke 9r
+        targetUrl = `${NINER_API_URL}${pathSuffix}${remainder}${queryString}`;
+        isTargeting9r = true;
+      }
+    } else if (matchedRoute.upstreamUrl.startsWith(KROMA_API_URL)) {
+      isTargeting9r = false;
+    }
+
+    // ── Authorization header sesuai upstream ──
+    if (isTargeting9r) {
+      upstreamHeaders["Authorization"] = `Bearer ${getNinerApiKey()}`;
+      delete upstreamHeaders["x-api-key"];
+    } else if (targetUrl.startsWith(KROMA_API_URL) && getKromaApiKey()) {
+      upstreamHeaders["Authorization"] = `Bearer ${getKromaApiKey()}`;
+      upstreamHeaders["x-api-key"] = getKromaApiKey();
     }
 
     // Jangan teruskan Authorization header dari klien ke upstream
@@ -479,6 +513,16 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         ...processedBody,
         ...matchedRoute.transformations.requestBodyOverride,
       };
+    }
+
+    // ── Rewrite model name (Smart Routing & Prefix Cleanup) ──
+    if (
+      typeof processedBody === "object" &&
+      processedBody !== null &&
+      typeof processedBody.model === "string"
+    ) {
+      const target = resolveRouteTarget(processedBody.model);
+      processedBody.model = rewriteModelForUpstream(processedBody.model, target);
     }
 
     // ── Dynamic Token Limiting (Loss Prevention) ──
@@ -595,7 +639,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       // Model lokal biasanya hanya punya 4096 token. Hermes & klien lain
       // kadang mengirim history panjang (system prompt + tools + history).
       // Strategi: pertahankan system prompt + N pesan terbaru saja.
-      const isLocal = processedBody.model.includes("lmstudio") || processedBody.model.includes("ollama") || processedBody.model.includes("pc-hitam");
+      const isLocal = processedBody.model.includes("lmstudio") || processedBody.model.includes("ollama") || processedBody.model.includes("pchitam");
       const LOCAL_CTX_SAFE_LIMIT = isLocal ? 3600 : 128000;
       if (
         Array.isArray(processedBody.messages) &&
@@ -728,26 +772,43 @@ gatewayRouter.use(async (req: Request, res: Response) => {
               }
             }
           } else {
-            // ── Normalisasi reasoning_content ke <think> tag untuk kompatibilitas Hermes ──
-            // Hermes tidak mengerti field 'reasoning_content', tapi mengerti <think>...</think>
-            // yang merupakan format thinking standar dari Anthropic/OpenAI.
-            let chunkStr = decoder.decode(value, { stream: true });
-            const lines = chunkStr.split('\n');
-            const normalizedLines = lines.map(line => {
-              if (!line.startsWith('data: ') || line.includes('[DONE]')) return line;
+            // ── Normalisasi reasoning_content (Hide Thinking Process) ──
+            streamBuffer += chunk;
+            const lines = streamBuffer.split('\n');
+            streamBuffer = lines.pop() || "";
+            
+            let outputLines = [];
+            for (let i = 0; i < lines.length; i++) {
+              let line = lines[i];
+              if (!line.startsWith('data: ') || line.includes('[DONE]')) {
+                outputLines.push(line);
+                continue;
+              }
               try {
                 const parsed = JSON.parse(line.slice(6));
                 const delta = parsed.choices?.[0]?.delta;
-                if (delta && delta.reasoning_content && !delta.content) {
-                  // Inject <think> content agar Hermes tahu ini adalah thinking block
-                  delta.content = delta.reasoning_content;
-                  delete delta.reasoning_content;
-                  return 'data: ' + JSON.stringify(parsed);
+                if (delta && ('reasoning_content' in delta)) {
+                  delete delta.reasoning_content; // Hapus data thinking
+                  
+                  // Jika setelah reasoning dihapus, tidak ada teks asli ('content') sama sekali,
+                  // kita lewati baris ini agar tidak mengirim event kosong.
+                  if (!delta.content && Object.keys(delta).length === 0) {
+                    continue;
+                  }
+                  outputLines.push('data: ' + JSON.stringify(parsed));
+                } else {
+                  outputLines.push(line);
                 }
-              } catch { /* chunk belum lengkap */ }
-              return line;
-            });
-            res.write(Buffer.from(normalizedLines.join('\n')));
+              } catch {
+                // If it fails to parse but starts with data:, it might be an invalid json from upstream.
+                // We just pass it through.
+                outputLines.push(line);
+              }
+            }
+            
+            if (outputLines.length > 0) {
+              res.write(Buffer.from(outputLines.join('\n') + '\n'));
+            }
           }
         }
       } catch (err) {

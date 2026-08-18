@@ -1,10 +1,13 @@
 import { db, Route } from "./db.js";
-
-const KROMA_API_URL = process.env.KROMA_API_URL || "https://kroma.kroombox.com";
+import {
+  KROMA_API_URL,
+  NINER_API_URL,
+  getKromaApiKey,
+  getNinerApiKey,
+} from "./modelRegistry.js";
 
 export const syncKromaRoutes = async () => {
-  const meta = db.getMeta();
-  const apiKey = meta.apiKeys?.find(k => k.provider === 'kroma')?.key || meta.kromaApiKey || process.env.KROMA_API_KEY;
+  const apiKey = getKromaApiKey();
 
   if (!apiKey) {
     return { success: false, error: "Kroma API Key belum dikonfigurasi. Silakan atur di menu Settings." };
@@ -39,7 +42,13 @@ export const syncKromaRoutes = async () => {
     ];
 
     for (const ep of standardEndpoints) {
-      const upstreamUrl = `${KROMA_API_URL}${ep.path}`;
+      // Route default menunjuk ke 9r (LiteLLM). Gateway akan meng-override
+      // targetUrl secara runtime berdasarkan model via modelRegistry.
+      const upstreamUrl = `${NINER_API_URL}${ep.path}`;
+      const authHeaders: Record<string, string> = {
+        "Authorization": `Bearer ${getNinerApiKey()}`
+      };
+
       const gatewayPath = `/gateway/kroma${ep.path}`;
 
       const existingRoute = existingRoutes.find(r => r.path === gatewayPath);
@@ -50,10 +59,7 @@ export const syncKromaRoutes = async () => {
         description: ep.desc,
         isActive: true,
         method: "ALL",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "x-api-key": apiKey
-        },
+        headers: authHeaders,
       };
 
       if (existingRoute) {

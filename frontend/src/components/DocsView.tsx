@@ -33,9 +33,9 @@ const CodeSnippet = ({ code, language = "bash" }: { code: string; language?: str
 };
 
 export default function DocsView() {
-  const baseUrl = "https://api-kroombridge.kroombox.com";
+  const baseUrl = "https://kroombridge.kroombox.com";
 
-  const chatRequestCode = `curl -X POST ${baseUrl}/gateway/kroma/v1/chat/completions \\
+  const chatRequestCode = `curl -X POST ${baseUrl}/v1/chat/completions \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer <API_KEY_ANDA>" \\
   -d '{
@@ -57,7 +57,7 @@ export default function DocsView() {
 
 # Inisialisasi client OpenAI dengan Base URL KroomBridge
 client = openai.OpenAI(
-    base_url="${baseUrl}/gateway/kroma/v1",
+    base_url="${baseUrl}/v1",
     api_key="<API_KEY_ANDA>"  # Masukkan API Key Klien di sini
 )
 
@@ -133,6 +133,12 @@ print(response.choices[0].message.content)`;
             Struktur request dan respons KroomBridge dirancang <strong>100% kompatibel</strong> dengan API OpenAI, sehingga Anda bisa langsung menggunakan pustaka bawaan <em>OpenAI SDK</em> dengan memasukkan API Key ke dalam kolom <code>api_key</code>.
           </p>
 
+          <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/30 rounded-xl p-4 mb-6">
+            <p className="text-emerald-800 dark:text-emerald-300 text-[14px] font-medium leading-relaxed">
+              <strong>💡 Smart Routing:</strong> KroomBridge secara otomatis akan memproses request inference Anda berdasarkan <strong>nama model</strong> yang diminta. Jika model tersebut berasal dari server Kroma, request akan otomatis diarahkan ke <strong>Kroma AI</strong>. Jika model tersebut merupakan model lokal/LiteLLM, request akan otomatis diteruskan ke <strong>https://9r.kii.lat/</strong>. Anda hanya cukup menggunakan satu Endpoint URL dan API Key yang sama untuk semua!
+            </p>
+          </div>
+
           <div className="mt-8">
             <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-3 text-[15px] flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -149,7 +155,7 @@ print(response.choices[0].message.content)`;
             </h4>
             <ol className="list-decimal pl-5 space-y-2 text-[14px] text-slate-700 dark:text-slate-300">
               <li>Buka aplikasi Postman, buat Request baru lalu ubah method menjadi <strong>POST</strong>.</li>
-              <li>Masukkan URL: <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-sky-600 dark:text-sky-400">{baseUrl}/gateway/kroma/v1/chat/completions</code></li>
+              <li>Masukkan URL: <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-sky-600 dark:text-sky-400">{baseUrl}/v1/chat/completions</code></li>
               <li>Buka tab <strong>Headers</strong>, tambahkan Key: <code>Authorization</code> dengan Value: <code>Bearer &lt;API_KEY_ANDA&gt;</code>.</li>
               <li>Buka tab <strong>Body</strong>, pilih opsi <strong>raw</strong> lalu ganti text menjadi <strong>JSON</strong>.</li>
               <li>Paste JSON payload berikut ke dalamnya, lalu klik <strong>Send</strong>:</li>
@@ -193,7 +199,7 @@ print(response.choices[0].message.content)`;
           <div className="bg-white/60 dark:bg-black/20 backdrop-blur-sm rounded-xl p-5 border border-sky-200/50 dark:border-sky-800/30 mb-6 relative z-10">
             <p className="font-semibold text-sky-900 dark:text-sky-300 mb-3 text-sm uppercase tracking-wider">Aplikasi yang Kompatibel (Diuji & Didukung):</p>
             <div className="flex flex-wrap gap-2">
-              {['OpenRouter', 'SillyTavern', 'Jan', 'LMStudio', 'Open WebUI', 'AnythingLLM', 'Dify', 'Chatbox', 'NextChat'].map(tool => (
+              {['OpenRouter', 'SillyTavern', 'Jan', 'LMStudio', 'Open WebUI', 'AnythingLLM', 'Dify', 'Chatbox', 'NextChat', 'Hermes', '9router'].map(tool => (
                 <span key={tool} className="px-3 py-1 bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 rounded-full text-[13px] font-medium border border-sky-200 dark:border-sky-800/50">
                   {tool}
                 </span>
@@ -217,7 +223,7 @@ print(response.choices[0].message.content)`;
                 <p className="text-slate-600 dark:text-slate-400 text-[13.5px] mt-1">Hapus URL bawaan OpenAI (seperti <code>https://api.openai.com/v1</code>) dan ganti menjadi Base URL KroomBridge Anda:</p>
                 <div className="mt-2.5 bg-white dark:bg-[#0B0E14] px-4 py-2.5 rounded-lg border border-sky-200 dark:border-sky-800/60 shadow-inner flex items-center justify-between group">
                   <code className="text-sky-600 dark:text-sky-400 font-mono text-[14px] select-all break-all">
-                    {baseUrl}/gateway/kroma/v1
+                    {baseUrl}/v1
                   </code>
                 </div>
               </div>

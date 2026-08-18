@@ -613,7 +613,7 @@ export default function ApiTester() {
       abortControllerRef.current = new AbortController();
 
       const startTime = Date.now();
-      const res = await fetch(getFullApiUrl("/api/proxy"), {
+      const res = await adminFetch("/api/proxy", {
         method: "POST",
         headers: postHeaders,
         body: JSON.stringify({

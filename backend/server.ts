@@ -6,7 +6,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import { authRouter } from "./src/server/auth.js";
-import { adminRouter } from "./src/server/admin.js";
+import { adminRouter, adminAuthMiddleware } from "./src/server/admin.js";
 import { gatewayRouter } from "./src/server/gateway.js";
 import { integrationRouter } from "./src/server/integration.js";
 import { v1Router } from "./src/server/v1Router.js";
@@ -254,7 +254,7 @@ async function startServer() {
   });
 
   // ─── API Proxy for API Tester (Bypass CORS) ───────────────
-  app.post("/api/proxy", async (req: Request, res: Response) => {
+  app.post("/api/proxy", adminAuthMiddleware, async (req: Request, res: Response) => {
     const { method, url, headers, body, timeoutMs, followRedirects } = req.body;
     console.log("[PROXY] Incoming Headers:", headers);
     let targetUrl = url;
@@ -475,11 +475,11 @@ async function startServer() {
     }
   });
 
-  app.get("/api/proxy/history", (req: Request, res: Response) => {
+  app.get("/api/proxy/history", adminAuthMiddleware, (req: Request, res: Response) => {
     res.json(proxyHistory);
   });
 
-  app.delete("/api/proxy/history", (req: Request, res: Response) => {
+  app.delete("/api/proxy/history", adminAuthMiddleware, (req: Request, res: Response) => {
     proxyHistory.length = 0;
     res.json({ success: true });
   });

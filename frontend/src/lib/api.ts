@@ -20,7 +20,7 @@ export const adminFetch = async (
 
   if (
     typeof input === "string" &&
-    input.startsWith("/api/admin") &&
+    (input.startsWith("/api/admin") || input.startsWith("/api/proxy")) &&
     input !== "/api/admin/login"
   ) {
     const token = sessionStorage.getItem("kroombridge_admin_token");
@@ -33,19 +33,20 @@ export const adminFetch = async (
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
-  
-  if (config.signal) {
-    // If a signal was already provided, we can't easily merge them in older browsers, 
-    // but in modern ones we could use AbortSignal.any. For simplicity, we just use ours.
+  // Hanya pakai timeout internal kalau caller tidak menyediakan signal sendiri.
+  // ApiTester mengirim signal sendiri (untuk tombol cancel & request panjang).
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  if (!config.signal) {
+    timeout = setTimeout(() => controller.abort(), 15000);
   }
-  config.signal = controller.signal;
+
+  config.signal = config.signal || controller.signal;
 
   let res: Response;
   try {
     res = await fetch(resource, config);
   } finally {
-    clearTimeout(timeout);
+    if (timeout) clearTimeout(timeout);
   }
 
   if (res.status === 401) {

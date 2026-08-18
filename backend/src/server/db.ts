@@ -1,4 +1,5 @@
 import mysql from "mysql2/promise";
+import bcrypt from "bcryptjs";
 
 export let pool: mysql.Pool;
 
@@ -351,6 +352,7 @@ export type DatabaseSchema = {
     quotaResetMode?: "monthly" | "purchase" | "annual";
     lastAnnualQuotaReset?: string;
     kromaApiKey?: string;
+    ninerApiKey?: string;
     apiKeys?: ApiKey[];
     disabledModels?: string[];
   };
@@ -373,7 +375,7 @@ const defaultData: DatabaseSchema = {
       name: "Admin",
       email: "admin@kroombox.id",
       role: "Admin",
-      password: "admin123",
+      password: bcrypt.hashSync("admin123", 10),
       createdAt: new Date().toISOString(),
     },
   ],

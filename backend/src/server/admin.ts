@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { db } from "./db.js";
 import type { Client, Package, Route, AdminUser } from "./db.js";
@@ -23,14 +24,11 @@ adminRouter.post("/login", (req: Request, res: Response) => {
   }
 
   const admins = db.getAdmins();
-  const admin = admins.find(
-    (a) => a.email === email && a.password === password,
-  );
+  const admin = admins.find((a) => a.email === email);
 
-  if (!admin) {
+  if (!admin || !bcrypt.compareSync(password, admin.password || "")) {
     return res.status(401).json({
       error: "Email atau password salah.",
-      hint: "Password default: admin123",
     });
   }
 
@@ -48,7 +46,7 @@ adminRouter.post("/login", (req: Request, res: Response) => {
 // ============================================================
 // MIDDLEWARE — Verifikasi Token Admin (RBAC)
 // ============================================================
-adminRouter.use((req: Request, res: Response, next: NextFunction) => {
+export const adminAuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -73,7 +71,9 @@ adminRouter.use((req: Request, res: Response, next: NextFunction) => {
     }
     return res.status(401).json({ error: "Token tidak valid" });
   }
-});
+};
+
+adminRouter.use(adminAuthMiddleware);
 
 // ============================================================
 // VALIDATE TOKEN
@@ -127,57 +127,59 @@ adminRouter.delete("/logs/old", async (req: Request, res: Response) => {
 });
 
 // ============================================================
-// PROVIDERS LIST (KROMA AI LIVE SYNC)
+// PROVIDERS LIST (KROMA AI + 9r LIVE SYNC)
 // GET /api/admin/providers
 // ============================================================
 adminRouter.get("/providers", async (req: Request, res: Response) => {
   try {
     const meta = db.getMeta();
     const customKey = req.query.customKey as string;
-    const apiKey = customKey || meta.apiKeys?.find(k => k.provider === 'kroma')?.key || meta.kromaApiKey || process.env.KROMA_API_KEY;
+    const kromaKey = customKey || meta.apiKeys?.find(k => k.provider === 'kroma')?.key || meta.kromaApiKey || process.env.KROMA_API_KEY;
+    const ninerKey = process.env.NINER_API_KEY || meta.ninerApiKey || "";
     const KROMA_API_URL = process.env.KROMA_API_URL || "https://kroma.kroombox.com";
-    
-    const headers: any = {
-      "Content-Type": "application/json"
-    };
+    const NINER_API_URL = process.env.NINER_API_URL || "https://9r.kii.lat";
 
-    if (apiKey) {
-      headers["Authorization"] = `Bearer ${apiKey}`;
-      headers["x-api-key"] = apiKey;
+    const kromaHeaders: any = { "Content-Type": "application/json" };
+    if (kromaKey) {
+      kromaHeaders["Authorization"] = `Bearer ${kromaKey}`;
+      kromaHeaders["x-api-key"] = kromaKey;
+    }
+    const ninerHeaders: any = { "Content-Type": "application/json" };
+    if (ninerKey) {
+      ninerHeaders["Authorization"] = `Bearer ${ninerKey}`;
     }
 
-    // Mengambil data provider dan model secara live dari Kroma AI (now OpenAI compatible)
-    const kromaRes = await fetch(`${KROMA_API_URL}/v1/models`, {
-      method: "GET",
-      headers
-    });
+    // Ambil daftar model dari kedua upstream secara paralel
+    const [kromaRes, ninerRes] = await Promise.all([
+      fetch(`${KROMA_API_URL}/v1/models`, { method: "GET", headers: kromaHeaders }),
+      fetch(`${NINER_API_URL}/v1/models`, { method: "GET", headers: ninerHeaders }),
+    ]);
 
-    if (!kromaRes.ok) {
-      throw new Error(`Kroma API merespons dengan status: ${kromaRes.status}`);
-    }
-
-    const data = await kromaRes.json();
-    
-    // Transform OpenAI format back to the old KroomBridge provider structure for the UI
     const providersMap: Record<string, any> = {};
-    if (data.data && Array.isArray(data.data)) {
+
+    const ingest = (data: any, source: string) => {
+      if (!data?.data || !Array.isArray(data.data)) return;
       data.data.forEach((m: any) => {
         if (!m.id) return;
-        const providerName = m.owned_by || "Kroma AI";
+        const providerName = m.owned_by || (source === "9r" ? "9r" : "Kroma AI");
         if (!providersMap[providerName]) {
-           providersMap[providerName] = {
-             id: providerName.toLowerCase().replace(/\s+/g, '-'),
-             name: providerName,
-             models: []
-           };
+          providersMap[providerName] = {
+            id: providerName.toLowerCase().replace(/\s+/g, '-'),
+            name: providerName,
+            source, // "kroma" | "9r"
+            models: [],
+          };
         }
         providersMap[providerName].models.push(m.id);
       });
-    }
-    
+    };
+
+    if (kromaRes.ok) ingest(await kromaRes.json(), "kroma");
+    if (ninerRes.ok) ingest(await ninerRes.json(), "9r");
+
     res.json({ data: Object.values(providersMap) });
   } catch (error: any) {
-    console.error("[Admin API] Error fetching live Kroma providers:", error.message);
+    console.error("[Admin API] Error fetching providers:", error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -959,7 +961,7 @@ adminRouter.post("/users", (req: Request, res: Response) => {
     name,
     email,
     role: role || "Viewer",
-    password: password || "admin123",
+    password: bcrypt.hashSync(password || "admin123", 10),
     createdAt: new Date().toISOString(),
   };
 
@@ -976,6 +978,8 @@ adminRouter.patch("/users/:id", (req: Request, res: Response) => {
   // Jangan update password jika kosong
   if (updates.password === "" || updates.password === null) {
     delete updates.password;
+  } else if (updates.password) {
+    updates.password = bcrypt.hashSync(updates.password, 10);
   }
 
   // Validasi role

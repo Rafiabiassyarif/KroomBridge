@@ -1,7 +1,7 @@
 import { db, Client, Package } from "./db.js";
 
 const USERS_API_URL = "https://panel.kroombox.com/api/admin/users";
-const API_KEY = "kp_live_d65881dc1f6ab575f806cfff1b6c0761c409952d0bc5c64ba351532d88bd7aa6";
+const API_KEY = process.env.PANEL_API_KEY;
 
 export const syncUsersToClients = async () => {
   console.log("[UserSync] Memulai sinkronisasi users dari panel...");
