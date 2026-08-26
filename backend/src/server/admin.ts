@@ -177,6 +177,28 @@ adminRouter.get("/providers", async (req: Request, res: Response) => {
     if (kromaRes.ok) ingest(await kromaRes.json(), "kroma");
     if (ninerRes.ok) ingest(await ninerRes.json(), "9r");
 
+    // Suntikkan model OpenCode (disamarkan tanpa "-free") agar muncul di Dashboard Admin
+    if (!providersMap["OpenCode Free"]) {
+      providersMap["OpenCode Free"] = {
+        id: "opencode-free",
+        name: "OpenCode Free",
+        source: "9r",
+        models: [],
+      };
+    }
+    const injectedAdminModels = [
+      "oc/mimo-v2.5",
+      "oc/big-pickle",
+      "oc/deepseek-v4-flash",
+      "oc/x-preview-f",
+      "oc/muse-spark-1.2-contributor",
+      "oc/hy3",
+      "oc/nemotron-3-ultra",
+      "oc/nemotron-3.5-lightning",
+      "oc/laguna-s-2.1"
+    ];
+    providersMap["OpenCode Free"].models.push(...injectedAdminModels);
+
     res.json({ data: Object.values(providersMap) });
   } catch (error: any) {
     console.error("[Admin API] Error fetching providers:", error.message);

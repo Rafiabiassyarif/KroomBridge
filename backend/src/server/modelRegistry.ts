@@ -101,8 +101,7 @@ export function normalizeModelName(raw: string): string {
   else if (m.includes("commandcode/")) m = m.slice(m.indexOf("commandcode/"));
   else if (m.includes("pcp/")) m = m.slice(m.indexOf("pcp/"));
   else if (m.includes("pc-putih/")) m = m.slice(m.indexOf("pc-putih/"));
-  else if (m.includes("oc/")) m = m.slice(m.indexOf("oc/") + 3);
-  else if (m.includes("/")) m = m.substring(m.indexOf("/") + 1); // fallback: buang prefix pertama
+  else if (m.includes("/") && !m.startsWith("oc/")) m = m.substring(m.indexOf("/") + 1); // fallback: buang prefix pertama kecuali oc/
 
   return m;
 }
@@ -135,7 +134,7 @@ export function resolveRouteTarget(
 
   // Model yang jelas milik 9r (by prefix) → 9r
   // cmc/ = Model-model premium yang ada di 9r
-  const ninerPrefixes = ["lmstudio/", "ollama-local/", "cmc/"];
+  const ninerPrefixes = ["lmstudio/", "ollama-local/", "cmc/", "oc/"];
   const is9rByPrefix = ninerPrefixes.some((p) =>
     raw.toLowerCase().startsWith(p.toLowerCase()),
   );
@@ -166,6 +165,22 @@ export function rewriteModelForUpstream(
 ): string {
   let m = String(model || "").trim();
 
+  // Alias untuk mengembalikan kata "-free" yang disembunyikan dari klien
+  const aliasMap: Record<string, string> = {
+    "oc/mimo-v2.5": "oc/mimo-v2.5-free",
+    "oc/deepseek-v4-flash": "oc/deepseek-v4-flash-free",
+    "oc/x-preview-f": "oc/x-preview-f-free",
+    "oc/muse-spark-1.2-contributor": "oc/muse-spark-1.2-contributor-free",
+    "oc/hy3": "oc/hy3-free",
+    "oc/nemotron-3-ultra": "oc/nemotron-3-ultra-free",
+    "oc/nemotron-3.5-lightning": "oc/nemotron-3.5-lightning-free",
+    "oc/laguna-s-2.1": "oc/laguna-s-2.1-free"
+  };
+
+  if (aliasMap[m]) {
+    m = aliasMap[m];
+  }
+
   // Bersihkan prefix "sampah" dari aplikasi pihak ke-3 (9router dll),
   // TAPI pertahankan prefix provider yang valid (pchitam/, ollama-local/, lmstudio/, airforce/)
   const validPrefixes = [
@@ -178,13 +193,13 @@ export function rewriteModelForUpstream(
     "pcp/",
     "pc-putih/",
     "cmc/",
+    "oc/",
   ];
   const hasValidPrefix = validPrefixes.some((p) =>
     m.toLowerCase().startsWith(p.toLowerCase()),
   );
   if (!hasValidPrefix) {
-    if (m.includes("oc/")) m = m.slice(m.indexOf("oc/") + 3);
-    else if (m.includes("/")) m = m.substring(m.indexOf("/") + 1);
+    if (m.includes("/")) m = m.substring(m.indexOf("/") + 1);
   } else if (m.includes("pcp/")) {
     m = m.slice(m.indexOf("pcp/"));
   } else if (m.includes("pc-putih/")) {
@@ -212,7 +227,23 @@ export function rewriteModelForUpstream(
 export function getAvailableModels(): string[] {
   const meta = db.getMeta();
   const disabled = meta.disabledModels || [];
-  return [...new Set([...kromaModels, ...ninerModels])].filter(
+
+  // Model gratis OpenCode tambahan (disuntikkan agar muncul di Hermes)
+  // Kata "-free" disembunyikan agar *end-user* tidak tahu itu model gratis.
+  // Saat dikirim ke 9router, kata "-free" akan ditempelkan kembali oleh aliasMap.
+  const injectedModels = [
+    "oc/mimo-v2.5",
+    "oc/big-pickle",
+    "oc/deepseek-v4-flash",
+    "oc/x-preview-f",
+    "oc/muse-spark-1.2-contributor",
+    "oc/hy3",
+    "oc/nemotron-3-ultra",
+    "oc/nemotron-3.5-lightning",
+    "oc/laguna-s-2.1"
+  ];
+
+  return [...new Set([...kromaModels, ...ninerModels, ...injectedModels])].filter(
     (m) => !disabled.some((d: string) => m === d || m.endsWith("/" + d)),
   );
 }

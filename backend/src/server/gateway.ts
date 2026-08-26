@@ -847,7 +847,7 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         let inputTokens = 0;
         let outputTokens = 0;
         let baseTokens = 0;
-        
+
         if (streamUsage?.total_tokens) {
           baseTokens = streamUsage.total_tokens;
           inputTokens = streamUsage.prompt_tokens || 0;
