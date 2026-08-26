@@ -13,6 +13,8 @@ import {
   Server,
   Globe,
   Cpu,
+  Edit2,
+  X
 } from "lucide-react";
 
 type Source = "kroma" | "9r";
@@ -79,6 +81,7 @@ function multiplierFor(name: string): number {
 export default function ModelsView() {
   const [models, setModels] = useState<ModelItem[]>([]);
   const [disabledModels, setDisabledModels] = useState<string[]>([]);
+  const [modelAliases, setModelAliases] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState<Record<Source, "idle" | "success" | "error">>({
     kroma: "idle",
@@ -86,15 +89,16 @@ export default function ModelsView() {
   });
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
-  const [hasChanges, setHasChanges] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [editingAlias, setEditingAlias] = useState<string | null>(null);
+  const [tempAlias, setTempAlias] = useState<string>("");
+  const [isSavingAlias, setIsSavingAlias] = useState(false);
 
   const loadDisabledModels = async () => {
-    const metaRes = await adminFetch(`/api/admin/system/meta`);
+    const metaRes = await adminFetch(`/api/admin/system/meta?t=${Date.now()}`);
     if (metaRes.ok) {
       const metaData = await metaRes.json();
       setDisabledModels(metaData.disabledModels || []);
-      setHasChanges(false);
+      setModelAliases(metaData.modelAliases || {});
     }
   };
 
@@ -103,7 +107,7 @@ export default function ModelsView() {
     setErrorMsg("");
     setSyncStatus({ kroma: "idle", "9r": "idle" });
     try {
-      const res = await adminFetch(`/api/admin/providers`);
+      const res = await adminFetch(`/api/admin/providers?t=${Date.now()}`);
       if (!res.ok) throw new Error("Gagal mengambil data model dari server.");
 
       const providers = (await res.json()).data || [];
@@ -155,32 +159,56 @@ export default function ModelsView() {
     setSortConfig({ key, direction });
   };
 
-  const toggleModelStatus = (modelName: string) => {
-    setDisabledModels((prev) => {
-      const isDisabled = prev.includes(modelName);
-      const next = isDisabled
-        ? prev.filter((m) => m !== modelName)
-        : [...prev, modelName];
-      setHasChanges(true);
-      return next;
-    });
-  };
+  const toggleModelStatus = async (modelName: string) => {
+    const prevDisabled = [...disabledModels];
+    const isDisabled = disabledModels.includes(modelName);
+    const nextDisabled = isDisabled
+      ? disabledModels.filter((m) => m !== modelName)
+      : [...disabledModels, modelName];
+      
+    setDisabledModels(nextDisabled);
 
-  const saveChanges = async () => {
-    setIsSaving(true);
     try {
       const res = await adminFetch(`/api/admin/system/meta`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ disabledModels }),
+        body: JSON.stringify({ disabledModels: nextDisabled }),
       });
-      if (!res.ok) throw new Error("Gagal menyimpan perubahan");
-      setHasChanges(false);
+      if (!res.ok) throw new Error("Gagal menyimpan status");
     } catch (error) {
       console.error("Failed to update disabled models:", error);
-      alert("Gagal menyimpan perubahan. Silakan coba lagi.");
+      alert("Gagal menyimpan perubahan status model.");
+      setDisabledModels(prevDisabled);
+    }
+  };
+
+  const saveAliasForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAlias) return;
+    setIsSavingAlias(true);
+    try {
+      const nextAliases = { ...modelAliases };
+      if (tempAlias.trim() === "") {
+        delete nextAliases[editingAlias];
+      } else {
+        nextAliases[editingAlias] = tempAlias.trim();
+      }
+      
+      const res = await adminFetch(`/api/admin/system/meta`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modelAliases: nextAliases }), // Note: only update modelAliases or include disabledModels as well. 
+        // Wait, sending `modelAliases` only will merge it because backend accepts partial updates!
+      });
+      if (!res.ok) throw new Error("Gagal menyimpan alias");
+      
+      setModelAliases(nextAliases);
+      setEditingAlias(null);
+    } catch (error) {
+      console.error("Failed to update alias:", error);
+      alert("Gagal menyimpan alias.");
     } finally {
-      setIsSaving(false);
+      setIsSavingAlias(false);
     }
   };
 
@@ -261,11 +289,11 @@ export default function ModelsView() {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-sm table-fixed">
             <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-bold text-[10px] uppercase tracking-wider select-none">
               <tr>
                 <th
-                  className="px-6 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors group"
+                  className="px-4 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors group w-[35%]"
                   onClick={() => handleSort("name")}
                 >
                   <div className="flex items-center space-x-2">
@@ -274,16 +302,17 @@ export default function ModelsView() {
                   </div>
                 </th>
                 <th
-                  className="px-6 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors group"
+                  className="px-4 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors group w-[15%]"
                   onClick={() => handleSort("multiplier")}
                 >
                   <div className="flex items-center space-x-2">
-                    <span>Token Multiplier</span>
+                    <span>Multiplier</span>
                     <SortIcon columnKey="multiplier" />
                   </div>
                 </th>
-                <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3 text-right">Provider</th>
+                <th className="px-4 py-3 w-[10%]">Status</th>
+                <th className="px-4 py-3 w-[25%]">Alias</th>
+                <th className="px-4 py-3 text-right w-[15%]">Provider</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/30">
@@ -294,7 +323,7 @@ export default function ModelsView() {
                     key={idx}
                     className={`transition-colors ${isDisabled ? 'bg-slate-50/50 dark:bg-slate-900/20 opacity-60 grayscale-[0.5]' : 'hover:bg-slate-50 dark:hover:bg-white/[0.02]'}`}
                   >
-                    <td className="px-6 py-3.5">
+                    <td className="px-4 py-3.5 overflow-hidden">
                       <div className="flex items-center space-x-3">
                         <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${isDisabled ? 'bg-slate-200 dark:bg-slate-800' : 'bg-slate-100 dark:bg-slate-800'}`}>
                           {isDisabled ? (
@@ -303,16 +332,18 @@ export default function ModelsView() {
                             <Sparkles className="w-3 h-3 text-slate-400" />
                           )}
                         </div>
-                        <span className={`font-bold text-slate-800 dark:text-slate-200 ${isDisabled ? 'line-through text-slate-500 dark:text-slate-500' : ''}`}>{model.name}</span>
+                        <span className={`font-bold truncate text-slate-800 dark:text-slate-200 ${isDisabled ? 'line-through text-slate-500 dark:text-slate-500' : ''}`} title={model.name}>
+                          {model.name}
+                        </span>
                       </div>
                     </td>
-                    <td className="px-6 py-3.5">
-                      <div className="flex items-center space-x-1.5">
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center space-x-1.5 whitespace-nowrap">
                         <span className="font-bold text-slate-800 dark:text-slate-200">{model.multiplier}x</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-500 font-medium tracking-wide">MULTIPLIER</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-500 font-medium tracking-wide">MULT</span>
                       </div>
                     </td>
-                    <td className="px-6 py-3.5">
+                    <td className="px-4 py-3.5">
                       <button
                         onClick={() => toggleModelStatus(model.name)}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
@@ -326,8 +357,40 @@ export default function ModelsView() {
                         />
                       </button>
                     </td>
-                    <td className="px-6 py-3.5 text-right">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700/50">
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center group/alias space-x-2 min-h-[28px]">
+                        {modelAliases[model.name] ? (
+                          <>
+                            <span className="text-sm truncate text-blue-600 dark:text-blue-400 font-bold" title={modelAliases[model.name]}>
+                              {modelAliases[model.name]}
+                            </span>
+                            <button
+                              onClick={() => {
+                                setTempAlias(modelAliases[model.name]);
+                                setEditingAlias(model.name);
+                              }}
+                              className="p-1.5 shrink-0 text-slate-400 hover:text-blue-500 bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md opacity-0 group-hover/alias:opacity-100 transition-all"
+                              title="Edit Alias"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setTempAlias("");
+                              setEditingAlias(model.name);
+                            }}
+                            className="p-1.5 shrink-0 text-slate-300 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-all opacity-60 hover:opacity-100 group-hover/alias:opacity-100"
+                            title="Tambah Alias"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5 text-right">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700/50 truncate max-w-[80px]" title={model.provider}>
                         {model.provider}
                       </span>
                     </td>
@@ -336,7 +399,7 @@ export default function ModelsView() {
               })}
               {list.length === 0 && !isLoading && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-10 text-center text-slate-500 dark:text-slate-400 text-sm font-medium">
+                  <td colSpan={5} className="px-6 py-10 text-center text-slate-500 dark:text-slate-400 text-sm font-medium">
                     {errorMsg || `Tidak ada model dari ${meta.label}. Pastikan server reachable dan API key benar.`}
                   </td>
                 </tr>
@@ -369,20 +432,6 @@ export default function ModelsView() {
           </p>
         </div>
         <div className="relative z-10 flex items-center space-x-3 shrink-0">
-          {hasChanges && (
-            <button
-              onClick={saveChanges}
-              disabled={isSaving}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-sm disabled:opacity-50 transition-colors"
-            >
-              {isSaving ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Check className="w-4 h-4" />
-              )}
-              <span>{isSaving ? "Menyimpan..." : "Simpan Perubahan"}</span>
-            </button>
-          )}
           <button
             onClick={fetchModels}
             disabled={isLoading}
@@ -402,8 +451,78 @@ export default function ModelsView() {
 
       <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded-2xl text-xs font-medium text-slate-500 dark:text-slate-400 flex items-start space-x-2">
         <Info className="w-4 h-4 shrink-0 mt-0.5 text-slate-400" />
-        <p>Klik header <strong>Model</strong> atau <strong>Token Multiplier</strong> untuk mengurutkan. Matikan model dengan toggle status — perubahan tersimpan ke pengaturan global dan berlaku untuk semua paket.</p>
+        <p>Klik header <strong>Model</strong> atau <strong>Token Multiplier</strong> untuk mengurutkan. Matikan model dengan toggle status, atau klik ikon Edit (pensil) di kolom Alias untuk mengganti nama model yang muncul di klien. Perubahan tersimpan secara global.</p>
       </div>
+
+      {/* Edit Alias Modal */}
+      {editingAlias && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-800 overflow-hidden"
+          >
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-500">
+                  <Edit2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100">Edit Nama Model</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5 truncate max-w-[200px]">{editingAlias}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingAlias(null)}
+                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={saveAliasForm} className="p-5">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Alias / Custom Name
+                  </label>
+                  <input
+                    type="text"
+                    value={tempAlias}
+                    onChange={(e) => setTempAlias(e.target.value)}
+                    placeholder="Contoh: Fable 5"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-shadow"
+                    autoFocus
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                    Kosongkan kolom ini jika ingin kembali menggunakan nama asli (<code className="font-mono">{editingAlias}</code>).
+                  </p>
+                </div>
+              </div>
+              <div className="mt-8 flex items-center justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingAlias(null)}
+                  className="px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingAlias}
+                  className="flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm disabled:opacity-50 transition-colors"
+                >
+                  {isSavingAlias ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Check className="w-4 h-4" />
+                  )}
+                  <span>{isSavingAlias ? "Menyimpan..." : "Simpan"}</span>
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

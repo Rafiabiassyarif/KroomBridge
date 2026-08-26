@@ -115,7 +115,17 @@ export type RouteTarget = {
 export function resolveRouteTarget(
   requestedModel: string,
 ): RouteTarget {
-  const raw = String(requestedModel || "").trim();
+  let raw = String(requestedModel || "").trim();
+
+  // Reverse-lookup if alias (aliasName -> originalModel)
+  const meta = db.getMeta();
+  const aliases = meta.modelAliases || {};
+  for (const [original, aliasName] of Object.entries(aliases)) {
+    if (raw === aliasName) {
+      raw = original;
+      break;
+    }
+  }
 
   // Nama asli (untuk cocokkan daftar) + versi bersih (untuk fallback prefix)
   const clean = normalizeModelName(raw);
@@ -164,6 +174,16 @@ export function rewriteModelForUpstream(
   target: RouteTarget,
 ): string {
   let m = String(model || "").trim();
+
+  // Reverse-lookup if alias (aliasName -> originalModel)
+  const meta = db.getMeta();
+  const aliases = meta.modelAliases || {};
+  for (const [original, aliasName] of Object.entries(aliases)) {
+    if (m === aliasName) {
+      m = original;
+      break;
+    }
+  }
 
   // Alias untuk mengembalikan kata "-free" yang disembunyikan dari klien
   const aliasMap: Record<string, string> = {
@@ -243,7 +263,12 @@ export function getAvailableModels(): string[] {
     "oc/laguna-s-2.1"
   ];
 
-  return [...new Set([...kromaModels, ...ninerModels, ...injectedModels])].filter(
+  const allModels = [...new Set([...kromaModels, ...ninerModels, ...injectedModels])].filter(
     (m) => !disabled.some((d: string) => m === d || m.endsWith("/" + d)),
   );
+
+  const aliases = meta.modelAliases || {};
+  const result = allModels.map(m => aliases[m] || m);
+
+  return [...new Set(result)];
 }

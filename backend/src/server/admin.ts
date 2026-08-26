@@ -1187,7 +1187,7 @@ adminRouter.get("/system/meta", (req: Request, res: Response) => {
 
 // PATCH /api/admin/system/meta — Update konfigurasi meta sistem (termasuk API Key)
 adminRouter.patch("/system/meta", (req: Request, res: Response) => {
-  const { kromaApiKey, apiKeys, disabledModels } = req.body;
+  const { kromaApiKey, apiKeys, disabledModels, modelAliases } = req.body;
   const updates: any = {};
 
   if (kromaApiKey !== undefined) {
@@ -1200,6 +1200,10 @@ adminRouter.patch("/system/meta", (req: Request, res: Response) => {
 
   if (disabledModels !== undefined) {
     updates.disabledModels = disabledModels;
+  }
+
+  if (modelAliases !== undefined) {
+    updates.modelAliases = modelAliases;
   }
 
   const updatedMeta = db.updateMeta(updates);

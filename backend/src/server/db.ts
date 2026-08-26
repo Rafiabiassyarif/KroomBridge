@@ -355,6 +355,7 @@ export type DatabaseSchema = {
     ninerApiKey?: string;
     apiKeys?: ApiKey[];
     disabledModels?: string[];
+    modelAliases?: Record<string, string>;
   };
 };
 
@@ -391,6 +392,7 @@ const defaultData: DatabaseSchema = {
     lastAnnualQuotaReset: "",
     kromaApiKey: "",
     apiKeys: [],
+    modelAliases: {},
   },
 };
 
