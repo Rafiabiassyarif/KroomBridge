@@ -4,7 +4,7 @@ import { db } from "./db.js";
 
 export const integrationRouter = express.Router();
 
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "kroombox_internal_secret";
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "kroombridge_126";
 
 // ─── Middleware: Verifikasi Webhook Secret ────────────────
 const verifyWebhookSecret = (
@@ -46,15 +46,32 @@ integrationRouter.post(
       });
     }
 
-    // Validasi paket
-    const pkg = db.getPackage(packageId);
+    let pkg = db.getPackage(packageId);
+    const { packageDetails } = req.body;
+
     if (!pkg) {
-      return res.status(400).json({
-        error: `Paket '${packageId}' tidak ditemukan di master paket KroomBridge.`,
-        availablePackages: db
-          .getPackages()
-          .map((p) => ({ id: p.id, name: p.name })),
-      });
+      if (packageDetails) {
+        pkg = db.createPackage({
+          id: packageId,
+          name: packageDetails.name || packageId,
+          monthlyQuota: packageDetails.monthlyQuota || 0,
+          allowedModels: packageDetails.allowedModels || ["*"],
+          allowedEndpoints: packageDetails.allowedEndpoints || ["*"],
+          maxRequestsPerMinute: packageDetails.maxRequestsPerMinute || 60,
+          allowOverage: packageDetails.allowOverage || false,
+          overageRatePer1K: packageDetails.overageRatePer1K || 0,
+          createdAt: new Date().toISOString(),
+        });
+      } else {
+        return res.status(400).json({
+          error: `Paket '${packageId}' tidak ditemukan di KroomBridge. Sertakan object 'packageDetails' untuk membuatnya secara otomatis.`,
+          availablePackages: db
+            .getPackages()
+            .map((p) => ({ id: p.id, name: p.name })),
+        });
+      }
+    } else if (packageDetails) {
+      pkg = db.updatePackage(packageId, packageDetails);
     }
 
     // Cek apakah user sudah ada (berdasarkan externalUserId)
@@ -172,20 +189,36 @@ integrationRouter.post(
   "/webhook/upgrade",
   verifyWebhookSecret,
   (req: Request, res: Response) => {
-    const { externalUserId, clientId, newPackageId } = req.body;
+    const { externalUserId, clientId, newPackageId, packageDetails } = req.body;
 
     if (!newPackageId) {
       return res.status(400).json({ error: "newPackageId wajib diisi." });
     }
 
-    const pkg = db.getPackage(newPackageId);
+    let pkg = db.getPackage(newPackageId);
     if (!pkg) {
-      return res.status(400).json({
-        error: `Paket '${newPackageId}' tidak ditemukan.`,
-        availablePackages: db
-          .getPackages()
-          .map((p) => ({ id: p.id, name: p.name })),
-      });
+      if (packageDetails) {
+        pkg = db.createPackage({
+          id: newPackageId,
+          name: packageDetails.name || newPackageId,
+          monthlyQuota: packageDetails.monthlyQuota || 0,
+          allowedModels: packageDetails.allowedModels || ["*"],
+          allowedEndpoints: packageDetails.allowedEndpoints || ["*"],
+          maxRequestsPerMinute: packageDetails.maxRequestsPerMinute || 60,
+          allowOverage: packageDetails.allowOverage || false,
+          overageRatePer1K: packageDetails.overageRatePer1K || 0,
+          createdAt: new Date().toISOString(),
+        });
+      } else {
+        return res.status(400).json({
+          error: `Paket '${newPackageId}' tidak ditemukan. Sertakan 'packageDetails' untuk membuatnya otomatis.`,
+          availablePackages: db
+            .getPackages()
+            .map((p) => ({ id: p.id, name: p.name })),
+        });
+      }
+    } else if (packageDetails) {
+      pkg = db.updatePackage(newPackageId, packageDetails);
     }
 
     let client;
@@ -272,6 +305,7 @@ integrationRouter.get(
       maxRequestsPerMinute: p.maxRequestsPerMinute,
       allowOverage: p.allowOverage,
       allowedEndpoints: p.allowedEndpoints,
+      allowedModels: p.allowedModels || [],
     }));
 
     res.json(packages);

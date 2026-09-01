@@ -31,20 +31,30 @@ export const syncUsersToClients = async () => {
       let pkg = existingPackages.find(p => p.name.toLowerCase() === user.plan?.toLowerCase());
       if (!pkg) {
         const newPkg: Package = {
-          id: `pkg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+          id: user.planDetails?.id || `pkg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
           name: user.plan || "Default Plan",
-          maxRequestsPerMinute: 60,
-          monthlyQuota: 100000,
+          maxRequestsPerMinute: user.planDetails?.maxRequestsPerMinute || 60,
+          monthlyQuota: user.planDetails?.monthlyQuota || 100000,
           quotaType: "token",
-          allowOverage: false,
-          overageRatePer1K: 0,
-          allowedEndpoints: ["*"],
+          allowOverage: user.planDetails?.allowOverage || false,
+          overageRatePer1K: user.planDetails?.overageRatePer1K || 0,
+          allowedEndpoints: user.planDetails?.allowedEndpoints || ["*"],
+          allowedModels: user.planDetails?.allowedModels || ["*"],
           description: `Auto-generated package for plan ${user.plan}`,
           createdAt: new Date().toISOString()
         };
         db.createPackage(newPkg);
         existingPackages.push(newPkg);
         pkg = newPkg;
+      } else if (user.planDetails) {
+        // Sinkronisasi pembaruan paket dari Panel ke KroomBridge
+        const updatedPkg = db.updatePackage(pkg.id, {
+          monthlyQuota: user.planDetails.monthlyQuota ?? pkg.monthlyQuota,
+          allowedModels: user.planDetails.allowedModels ?? pkg.allowedModels,
+          allowedEndpoints: user.planDetails.allowedEndpoints ?? pkg.allowedEndpoints,
+          maxRequestsPerMinute: user.planDetails.maxRequestsPerMinute ?? pkg.maxRequestsPerMinute,
+        });
+        if (updatedPkg) pkg = updatedPkg;
       }
 
       const existingClient = existingClients.find(c => c.id === user.id);
