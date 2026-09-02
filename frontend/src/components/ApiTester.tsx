@@ -130,6 +130,14 @@ export default function ApiTester() {
     () =>
       localStorage.getItem("kroombridge_tester_activeTab") || "authorization",
   );
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const [responseTab, setResponseTab] = useState(
     () => localStorage.getItem("kroombridge_tester_responseTab") || "body",
   );
@@ -791,7 +799,7 @@ export default function ApiTester() {
       <div className="pointer-events-none absolute -top-10 -right-10 h-56 w-56 rounded-full bg-linear-to-br from-emerald-400/30 via-blue-400/10 to-transparent blur-3xl"></div>
       <div className="pointer-events-none absolute -bottom-10 -left-10 h-64 w-64 rounded-full bg-linear-to-br from-blue-500/20 via-indigo-500/10 to-transparent blur-3xl"></div>
 
-      <div className="relative overflow-hidden flex items-center justify-between bg-white/90 dark:bg-slate-950/70 p-5 rounded-2xl border border-slate-200/70 dark:border-slate-800 shadow-[0_12px_40px_-30px_rgba(15,23,42,0.6)]">
+      <div className="relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white/90 dark:bg-slate-950/70 p-5 rounded-2xl border border-slate-200/70 dark:border-slate-800 shadow-[0_12px_40px_-30px_rgba(15,23,42,0.6)] gap-4 sm:gap-0">
         <div className="absolute inset-0 bg-linear-to-r from-emerald-500/10 via-transparent to-blue-500/10 opacity-80"></div>
         <div className="flex items-center space-x-4">
           <div className="relative z-10 w-11 h-11 rounded-xl bg-linear-to-br from-emerald-500/30 via-slate-900 to-slate-800 flex items-center justify-center shadow-[0_10px_30px_-16px_rgba(16,185,129,0.9)] border border-emerald-400/30">
@@ -809,7 +817,7 @@ export default function ApiTester() {
 
       </div>
 
-      <PanelGroup id="api-tester-panels" autoSave="api-tester-panels" orientation="horizontal" className="flex-1 min-h-0 gap-6">
+      <PanelGroup id="api-tester-panels" autoSave="api-tester-panels" orientation={isMobile ? "vertical" : "horizontal"} className="flex-1 min-h-0 gap-6">
         <Panel defaultSize={50} minSize={30} className="flex flex-col space-y-4">
           <div className="flex space-x-2">
             <div className="flex-1 flex bg-white/95 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-[0_12px_40px_-28px_rgba(15,23,42,0.8)] focus-within:ring-2 ring-emerald-400/30 focus-within:border-emerald-400/60 transition-all">

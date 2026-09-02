@@ -83,7 +83,7 @@ export default function ArchitectureView() {
       {/* Visual Flow Diagram */}
       <motion.div
         variants={cardVariants}
-        className="bg-slate-900 rounded-[2.5rem] p-8 md:p-12 relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-800"
+        className="bg-slate-900 rounded-[2.5rem] p-4 sm:p-6 lg:p-8 md:p-12 relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-800"
       >
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03]"></div>
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-500/20 rounded-full blur-[100px] pointer-events-none"></div>
@@ -229,7 +229,7 @@ export default function ArchitectureView() {
         <motion.div
           variants={itemVariants}
           whileHover={{ y: -5 }}
-          className="bg-white dark:bg-slate-900/50 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
+          className="bg-white dark:bg-slate-900/50 rounded-3xl p-4 sm:p-6 lg:p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
         >
           <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-900/20 rounded-full blur-3xl -mr-10 -mt-10 opacity-70 group-hover:scale-125 transition-transform duration-700"></div>
           <div className="bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-100/50 dark:border-indigo-800/50 w-14 h-14 flex items-center justify-center rounded-2xl mb-6 shadow-inner">
@@ -249,7 +249,7 @@ export default function ArchitectureView() {
         <motion.div
           variants={itemVariants}
           whileHover={{ y: -5 }}
-          className="bg-white dark:bg-slate-900/50 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
+          className="bg-white dark:bg-slate-900/50 rounded-3xl p-4 sm:p-6 lg:p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
         >
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 dark:bg-amber-900/20 rounded-full blur-3xl -mr-10 -mt-10 opacity-70 group-hover:scale-125 transition-transform duration-700"></div>
           <div className="bg-amber-50 dark:bg-amber-900/40 border border-amber-100/50 dark:border-amber-800/50 w-14 h-14 flex items-center justify-center rounded-2xl mb-6 shadow-inner">
@@ -269,7 +269,7 @@ export default function ArchitectureView() {
         <motion.div
           variants={itemVariants}
           whileHover={{ y: -5 }}
-          className="bg-white dark:bg-slate-900/50 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
+          className="bg-white dark:bg-slate-900/50 rounded-3xl p-4 sm:p-6 lg:p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
         >
           <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 dark:bg-rose-900/20 rounded-full blur-3xl -mr-10 -mt-10 opacity-70 group-hover:scale-125 transition-transform duration-700"></div>
           <div className="bg-rose-50 dark:bg-rose-900/40 border border-rose-100/50 dark:border-rose-800/50 w-14 h-14 flex items-center justify-center rounded-2xl mb-6 shadow-inner">
@@ -289,7 +289,7 @@ export default function ArchitectureView() {
         <motion.div
           variants={itemVariants}
           whileHover={{ y: -5 }}
-          className="bg-white dark:bg-slate-900/50 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
+          className="bg-white dark:bg-slate-900/50 rounded-3xl p-4 sm:p-6 lg:p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
         >
           <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-50 dark:bg-cyan-900/20 rounded-full blur-3xl -mr-10 -mt-10 opacity-70 group-hover:scale-125 transition-transform duration-700"></div>
           <div className="bg-cyan-50 dark:bg-cyan-900/40 border border-cyan-100/50 dark:border-cyan-800/50 w-14 h-14 flex items-center justify-center rounded-2xl mb-6 shadow-inner">
@@ -309,7 +309,7 @@ export default function ArchitectureView() {
         <motion.div
           variants={itemVariants}
           whileHover={{ y: -5 }}
-          className="bg-white dark:bg-slate-900/50 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
+          className="bg-white dark:bg-slate-900/50 rounded-3xl p-4 sm:p-6 lg:p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
         >
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 dark:bg-blue-900/20 rounded-full blur-3xl -mr-10 -mt-10 opacity-70 group-hover:scale-125 transition-transform duration-700"></div>
           <div className="bg-blue-50 dark:bg-blue-900/40 border border-blue-100/50 dark:border-blue-800/50 w-14 h-14 flex items-center justify-center rounded-2xl mb-6 shadow-inner">
@@ -329,7 +329,7 @@ export default function ArchitectureView() {
         <motion.div
           variants={itemVariants}
           whileHover={{ y: -5 }}
-          className="bg-white dark:bg-slate-900/50 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
+          className="bg-white dark:bg-slate-900/50 rounded-3xl p-4 sm:p-6 lg:p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
         >
           <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 dark:bg-purple-900/20 rounded-full blur-3xl -mr-10 -mt-10 opacity-70 group-hover:scale-125 transition-transform duration-700"></div>
           <div className="bg-purple-50 dark:bg-purple-900/40 border border-purple-100/50 dark:border-purple-800/50 w-14 h-14 flex items-center justify-center rounded-2xl mb-6 shadow-inner">
@@ -349,7 +349,7 @@ export default function ArchitectureView() {
         <motion.div
           variants={itemVariants}
           whileHover={{ y: -5 }}
-          className="bg-white dark:bg-slate-900/50 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
+          className="bg-white dark:bg-slate-900/50 rounded-3xl p-4 sm:p-6 lg:p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
         >
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 dark:bg-emerald-900/20 rounded-full blur-3xl -mr-10 -mt-10 opacity-70 group-hover:scale-125 transition-transform duration-700"></div>
           <div className="bg-emerald-50 dark:bg-emerald-900/40 border border-emerald-100/50 dark:border-emerald-800/50 w-14 h-14 flex items-center justify-center rounded-2xl mb-6 shadow-inner">
@@ -369,7 +369,7 @@ export default function ArchitectureView() {
         <motion.div
           variants={itemVariants}
           whileHover={{ y: -5 }}
-          className="bg-white dark:bg-slate-900/50 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
+          className="bg-white dark:bg-slate-900/50 rounded-3xl p-4 sm:p-6 lg:p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
         >
           <div className="absolute top-0 right-0 w-32 h-32 bg-teal-50 dark:bg-teal-900/20 rounded-full blur-3xl -mr-10 -mt-10 opacity-70 group-hover:scale-125 transition-transform duration-700"></div>
           <div className="bg-teal-50 dark:bg-teal-900/40 border border-teal-100/50 dark:border-teal-800/50 w-14 h-14 flex items-center justify-center rounded-2xl mb-6 shadow-inner">
@@ -389,7 +389,7 @@ export default function ArchitectureView() {
         <motion.div
           variants={itemVariants}
           whileHover={{ y: -5 }}
-          className="bg-white dark:bg-slate-900/50 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
+          className="bg-white dark:bg-slate-900/50 rounded-3xl p-4 sm:p-6 lg:p-8 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group cursor-default"
         >
           <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 dark:bg-orange-900/20 rounded-full blur-3xl -mr-10 -mt-10 opacity-70 group-hover:scale-125 transition-transform duration-700"></div>
           <div className="bg-orange-50 dark:bg-orange-900/40 border border-orange-100/50 dark:border-orange-800/50 w-14 h-14 flex items-center justify-center rounded-2xl mb-6 shadow-inner">

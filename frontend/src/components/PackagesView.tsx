@@ -168,7 +168,7 @@ export default function PackagesView() {
 
   if (loading)
     return (
-      <div className="flex items-center justify-center p-10">
+      <div className="flex items-center justify-center p-4 sm:p-6 lg:p-10">
         <div className="w-8 h-8 flex space-x-2">
           <div
             className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"
@@ -206,22 +206,24 @@ export default function PackagesView() {
             Manajemen Paket
           </h2>
           <p className="text-slate-500 dark:text-slate-400 text-sm ml-1">
-            Daftar paket API yang tersedia, menentukan batas kuota dan rate
-            limit.
+            Daftar paket API yang tersedia, menentukan batas kuota dan rate limit.
           </p>
         </div>
+        
         <button
           onClick={openAddModal}
-          className="relative z-10 flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:-translate-y-0.5 transition-all"
+          className="relative z-10 bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 px-5 py-2.5 rounded-xl font-bold shadow-sm border border-slate-200 dark:border-slate-700 transition-colors flex items-center gap-2 outline-none"
         >
           <Plus className="w-4 h-4" />
           <span>Tambah Paket</span>
         </button>
       </motion.div>
 
+
+
       <motion.div
         variants={containerVariants}
-        className="grid md:grid-cols-3 gap-6"
+        className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
       >
         {packages.map((pkg, idx) => {
           // Calculate gradient based on index to differentiate packages
@@ -250,7 +252,7 @@ export default function PackagesView() {
               variants={itemVariants}
               whileHover={{ y: -5 }}
               key={pkg.id}
-              className="bg-white dark:bg-slate-900/50 border text-sm border-slate-100 dark:border-slate-800 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] p-8 relative overflow-hidden flex flex-col group cursor-default"
+              className="bg-white dark:bg-slate-900/50 border text-sm border-slate-100 dark:border-slate-800 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] p-4 sm:p-6 lg:p-8 relative overflow-hidden flex flex-col group cursor-default"
             >
               <div
                 className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl ${gradients[accentColor]} dark:opacity-10 rounded-full blur-3xl -mr-10 -mt-10 opacity-70 group-hover:scale-125 transition-transform duration-700`}
@@ -363,22 +365,23 @@ export default function PackagesView() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-2 mt-8 py-3 px-4 bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl relative z-10">
+              <div className="mt-6 flex justify-end space-x-2 pt-4 border-t border-slate-100 dark:border-slate-800/80">
                 <button
                   onClick={() => openEditModal(pkg)}
-                  className={`text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-transparent hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-xl flex items-center space-x-1 font-bold transition-all ${buttonHoverTextColors[accentColor]}`}
+                  className={`text-slate-400 ${buttonHoverTextColors[accentColor]} transition-colors p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg outline-none`}
                   title="Edit Paket"
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setPackageToDelete(pkg.id)}
-                  className="text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-transparent hover:bg-red-50 dark:hover:bg-red-950/20 p-2 rounded-xl hover:text-red-600 dark:hover:text-red-400 flex items-center space-x-1 font-bold transition-all text-red-600/0"
+                  className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors p-2 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg outline-none"
                   title="Hapus Paket"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
+
             </motion.div>
           );
         })}
@@ -398,7 +401,7 @@ export default function PackagesView() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-lg overflow-hidden my-auto border border-slate-100 dark:border-slate-800 flex flex-col max-h-[90vh]"
             >
-              <div className="p-8 border-b border-slate-100 dark:border-slate-800/60 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/20 shrink-0">
+              <div className="p-4 sm:p-6 lg:p-8 border-b border-slate-100 dark:border-slate-800/60 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/20 shrink-0">
                 <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                     <Edit2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -415,7 +418,7 @@ export default function PackagesView() {
                   <Plus className="w-5 h-5 rotate-45" />
                 </button>
               </div>
-              <form onSubmit={handleSave} className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
+              <form onSubmit={handleSave} className="p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto custom-scrollbar">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-2">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
@@ -608,7 +611,7 @@ export default function PackagesView() {
                       </div>
                       
                       {availableModels.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                        <div className="flex flex-col items-center justify-center py-4 sm:py-6 lg:py-8 text-slate-400">
                           <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
                             <RefreshCw className="w-4 h-4 animate-spin text-slate-500" />
                           </div>
@@ -653,7 +656,7 @@ export default function PackagesView() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800 p-8"
+              className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800 p-4 sm:p-6 lg:p-8"
             >
               <div className="w-14 h-14 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mb-6">
                 <Trash2 className="w-6 h-6" />

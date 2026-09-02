@@ -98,7 +98,7 @@ print(response.choices[0].message.content)`;
         className="space-y-6"
       >
         {/* Section 1: Konsep Autentikasi */}
-        <div className="p-6 md:p-8 bg-white dark:bg-[#11141A] rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all hover:shadow-md">
+        <div className="p-6 md:p-4 sm:p-6 lg:p-8 bg-white dark:bg-[#11141A] rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all hover:shadow-md">
           <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3 mb-5">
             <div className="p-2 bg-amber-500/10 text-amber-500 rounded-lg">
               <Key className="w-5 h-5" />
@@ -122,7 +122,7 @@ print(response.choices[0].message.content)`;
         </div>
 
         {/* Section 2: Menggunakan AI */}
-        <div className="p-6 md:p-8 bg-white dark:bg-[#11141A] rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all hover:shadow-md">
+        <div className="p-6 md:p-4 sm:p-6 lg:p-8 bg-white dark:bg-[#11141A] rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all hover:shadow-md">
           <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3 mb-5">
             <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg">
               <Terminal className="w-5 h-5" />
@@ -180,7 +180,7 @@ print(response.choices[0].message.content)`;
         </div>
 
         {/* Section 3: Integrasi di Aplikasi Pihak Ketiga */}
-        <div className="p-6 md:p-8 bg-gradient-to-br from-sky-50 to-blue-50 dark:from-[#11141A] dark:to-sky-950/10 rounded-2xl border border-sky-100 dark:border-sky-900/30 shadow-sm relative overflow-hidden">
+        <div className="p-6 md:p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-sky-50 to-blue-50 dark:from-[#11141A] dark:to-sky-950/10 rounded-2xl border border-sky-100 dark:border-sky-900/30 shadow-sm relative overflow-hidden">
           
           <div className="absolute right-0 top-0 opacity-10 pointer-events-none -mr-10 -mt-10">
             <Blocks className="w-64 h-64 text-sky-500" />

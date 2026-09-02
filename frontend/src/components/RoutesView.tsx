@@ -418,7 +418,7 @@ export default function RoutesView() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             className="relative bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden"
           >
-            <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+            <div className="px-4 sm:px-6 lg:px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
                   <Cpu className="w-5 h-5" />
@@ -440,7 +440,7 @@ export default function RoutesView() {
                 <Plus className="w-5 h-5 rotate-45" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-8 space-y-6">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 lg:p-8 space-y-6">
               {error && (
                 <div className="p-4 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-800/30 rounded-2xl text-sm font-bold flex items-start gap-2.5 shadow-sm">
                   <div className="w-1.5 h-1.5 rounded-full bg-rose-500 mt-1.5 shrink-0 animate-pulse"></div>
@@ -541,7 +541,7 @@ export default function RoutesView() {
                 </button>
                 <button
                   type="submit"
-                  className="px-8 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all outline-none"
+                  className="px-4 sm:px-6 lg:px-8 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all outline-none"
                 >
                   Simpan
                 </button>
@@ -562,7 +562,7 @@ export default function RoutesView() {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="relative bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-sm p-8 border border-slate-200 dark:border-slate-800 shadow-2xl text-center"
+              className="relative bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-sm p-4 sm:p-6 lg:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl text-center"
             >
               <div className="w-20 h-20 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-5">
                 <Trash2 className="w-10 h-10" />

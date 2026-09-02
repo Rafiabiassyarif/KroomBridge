@@ -79,7 +79,7 @@ export default function DeveloperPortal() {
     >
       <motion.div
         variants={itemVariants}
-        className="flex justify-between items-center bg-white dark:bg-slate-900/50 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group"
+        className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-slate-900/50 p-4 sm:p-6 lg:p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group gap-4 sm:gap-0"
       >
         <div className="absolute top-0 right-0 p-32 bg-gradient-to-bl from-indigo-100/60 dark:from-indigo-900/20 via-purple-50/40 dark:via-purple-900/10 to-blue-50/40 dark:to-blue-900/10 rounded-full blur-3xl -mr-16 -mt-16 opacity-80 group-hover:scale-110 transition-transform duration-700"></div>
         <div className="relative z-10 flex-1">
@@ -157,7 +157,7 @@ export default function DeveloperPortal() {
 
         <motion.div
           variants={itemVariants}
-          className="flex-1 bg-white dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] p-10 min-h-[600px] overflow-hidden relative"
+          className="flex-1 bg-white dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] p-4 sm:p-6 lg:p-10 min-h-[600px] overflow-hidden relative"
         >
           <div className="absolute top-0 right-0 p-32 bg-gradient-to-bl from-slate-50 dark:from-slate-800/50 to-white dark:to-slate-900/50 rounded-full blur-3xl -mr-10 -mt-10 opacity-60 pointer-events-none"></div>
 

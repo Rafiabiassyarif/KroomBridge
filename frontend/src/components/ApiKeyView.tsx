@@ -187,7 +187,7 @@ export function ApiKeyViewInner() {
 
   if (loading)
     return (
-      <div className="flex items-center justify-center p-10">
+      <div className="flex items-center justify-center p-4 sm:p-6 lg:p-10">
         <div className="w-8 h-8 flex space-x-2">
           <div className="w-3 h-3 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></div>
           <div className="w-3 h-3 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></div>
@@ -205,7 +205,7 @@ export function ApiKeyViewInner() {
     >
       <motion.div
         variants={itemVariants}
-        className="flex justify-between items-center bg-white/40 dark:bg-white/[0.03] backdrop-blur-xl p-8 rounded-3xl border border-white/50 dark:border-white/[0.06] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group"
+        className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white/40 dark:bg-white/[0.03] backdrop-blur-xl p-4 sm:p-6 lg:p-8 rounded-3xl border border-white/50 dark:border-white/[0.06] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group gap-4 sm:gap-0"
       >
         <div className="absolute top-0 right-0 p-32 bg-gradient-to-bl from-emerald-100/60 dark:from-emerald-900/20 via-teal-50/40 dark:via-teal-900/10 to-cyan-50/40 dark:to-cyan-900/10 rounded-full blur-3xl -mr-16 -mt-16 opacity-80 group-hover:scale-110 transition-transform duration-700"></div>
         <div className="absolute bottom-0 left-0 p-24 bg-gradient-to-tr from-slate-50/40 dark:from-slate-800/40 to-slate-100/40 dark:to-slate-700/40 rounded-full blur-3xl -ml-16 -mb-16 opacity-60"></div>
@@ -423,7 +423,7 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-10 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-xl m-10 border border-rose-500">
+        <div className="p-4 sm:p-6 lg:p-10 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-xl m-10 border border-rose-500">
           <h2 className="font-bold text-xl mb-4">Component Crash!</h2>
           <pre className="text-xs whitespace-pre-wrap">{this.state.error?.stack || this.state.error?.message || String(this.state.error)}</pre>
         </div>

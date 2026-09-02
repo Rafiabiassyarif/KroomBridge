@@ -597,6 +597,31 @@ adminRouter.get("/packages/:id", (req: Request, res: Response) => {
     clients: clients.map((c) => c.id),
   });
 });
+// -----------------------------------------------------------------------------
+// HELPER: Sync Packages ke Panel Webhook
+// -----------------------------------------------------------------------------
+async function notifyPanelWebhook(action: "created" | "updated" | "deleted", payload: any) {
+  const webhookUrl = process.env.PANEL_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  try {
+    await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.PANEL_API_KEY || ""}`,
+        "webhook_secret": process.env.WEBHOOK_SECRET || ""
+      },
+      body: JSON.stringify({
+        event: `package:${action}`,
+        data: payload
+      })
+    });
+    console.log(`[Webhook] Berhasil mengirim webhook package:${action} ke Panel`);
+  } catch (err: any) {
+    console.error(`[Webhook] Gagal mengirim webhook package:${action} ke Panel:`, err.message);
+  }
+}
 
 // POST /api/admin/packages
 adminRouter.post("/packages", (req: Request, res: Response) => {
@@ -640,6 +665,7 @@ adminRouter.post("/packages", (req: Request, res: Response) => {
     type: "package:change",
     data: { action: "created", package: newPackage },
   });
+  notifyPanelWebhook("created", newPackage);
   res.status(201).json(newPackage);
 });
 
@@ -665,6 +691,7 @@ adminRouter.patch("/packages/:id", (req: Request, res: Response) => {
     type: "package:change",
     data: { action: "updated", package: updated },
   });
+  notifyPanelWebhook("updated", updated);
   res.json(updated);
 });
 
@@ -689,6 +716,7 @@ adminRouter.delete("/packages/:id", async (req: Request, res: Response) => {
       type: "package:change",
       data: { action: "deleted", id: pkgId },
     });
+    notifyPanelWebhook("deleted", { id: pkgId });
     res.json({ success: true, message: "Paket berhasil dihapus" });
   } catch (err: any) {
     console.error("[Delete Package Error]", err);

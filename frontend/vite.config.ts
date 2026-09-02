@@ -22,11 +22,11 @@ export default defineConfig(({mode}) => {
       watch: { ignored: ['**/database.json', '**/debug.log'] },
       proxy: {
         '/api': {
-          target: 'http://localhost:3000',
+          target: 'http://localhost:4000',
           changeOrigin: true
         },
         '/gateway': {
-          target: 'http://localhost:3000',
+          target: 'http://localhost:4000',
           changeOrigin: true
         }
       }

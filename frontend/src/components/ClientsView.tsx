@@ -240,7 +240,7 @@ export default function ClientsView() {
 
   if (loading)
     return (
-      <div className="flex items-center justify-center p-10">
+      <div className="flex items-center justify-center p-4 sm:p-6 lg:p-10">
         <div className="w-8 h-8 flex space-x-2">
           <div
             className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"
@@ -270,7 +270,7 @@ export default function ClientsView() {
     >
       <motion.div
         variants={itemVariants}
-        className="flex justify-between items-center bg-white dark:bg-slate-900/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group"
+        className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 bg-white dark:bg-slate-900/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group"
       >
         <div className="absolute top-0 right-0 p-24 bg-gradient-to-bl from-blue-100/60 dark:from-blue-900/20 to-indigo-50/40 dark:to-indigo-900/20 rounded-full blur-3xl -mr-10 -mt-10 opacity-80 group-hover:scale-110 transition-transform duration-700"></div>
         <div className="relative z-10 flex-1">
@@ -284,7 +284,7 @@ export default function ClientsView() {
             Kelola aplikasi klien dan API key yang mengakses KroomBridge.
           </p>
         </div>
-        <div className="flex gap-3 relative z-10">
+        <div className="flex flex-wrap gap-3 relative z-10">
           <button
             onClick={handleSyncUsers}
             disabled={isSyncing}
@@ -311,11 +311,11 @@ export default function ClientsView() {
           <table className="w-full text-left min-w-max">
             <thead>
               <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800/50 text-slate-400 text-[11px] uppercase tracking-wider font-bold">
-                <th className="px-8 py-5">Nama Klien</th>
-                <th className="px-8 py-5">Paket</th>
-                <th className="px-8 py-5">Status</th>
-                <th className="px-8 py-5">Penggunaan</th>
-                <th className="px-8 py-5 text-right">Aksi</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-5">Nama Klien</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-5">Paket</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-5">Status</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-5">Penggunaan</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-5 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -329,7 +329,7 @@ export default function ClientsView() {
                 return (
                   <React.Fragment key={client.id}>
                     <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors group">
-                      <td className="px-8 py-5">
+                      <td className="px-4 sm:px-6 lg:px-8 py-5">
                         <div className="font-bold text-slate-800 dark:text-slate-100">
                           {client.name}
                         </div>
@@ -352,12 +352,12 @@ export default function ClientsView() {
                           </button>
                         </div>
                       </td>
-                      <td className="px-8 py-5">
+                      <td className="px-4 sm:px-6 lg:px-8 py-5">
                         <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100/50 dark:border-blue-800/50 shadow-sm">
                           {pkg?.name || client.packageId}
                         </span>
                       </td>
-                      <td className="px-8 py-5">
+                      <td className="px-4 sm:px-6 lg:px-8 py-5">
                         <span
                           className={cn(
                             "inline-flex items-center space-x-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide shadow-sm",
@@ -379,7 +379,7 @@ export default function ClientsView() {
                           </span>
                         </span>
                       </td>
-                      <td className="px-8 py-5">
+                      <td className="px-4 sm:px-6 lg:px-8 py-5">
                         <div className="text-slate-800 dark:text-slate-100 font-bold">
                           {client.usageThisMonth.toLocaleString()}{" "}
                           <span className="text-slate-400 font-medium">
@@ -396,7 +396,7 @@ export default function ClientsView() {
                           ></div>
                         </div>
                       </td>
-                      <td className="px-8 py-5 flex items-center justify-end space-x-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                      <td className="px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-end space-x-2 opacity-80 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() =>
                             setExpandedClientId(
@@ -462,7 +462,7 @@ export default function ClientsView() {
                           exit={{ opacity: 0, height: 0 }}
                           className="bg-slate-50/60 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800 overflow-hidden"
                         >
-                          <td colSpan={5} className="px-8 py-6">
+                          <td colSpan={5} className="px-4 sm:px-6 lg:px-8 py-6">
                             <div className="bg-slate-900 rounded-2xl p-6 text-slate-300 font-mono text-xs flex flex-col space-y-5 shadow-lg shadow-slate-900/10 border border-slate-800/80 relative overflow-hidden">
                               <div className="absolute top-0 right-0 p-16 bg-blue-500 rounded-full blur-[80px] opacity-10 pointer-events-none"></div>
 
@@ -558,7 +558,7 @@ export default function ClientsView() {
                 <tr>
                   <td
                     colSpan={5}
-                    className="px-8 py-16 text-center text-slate-400 font-medium"
+                    className="px-4 sm:px-6 lg:px-8 py-16 text-center text-slate-400 font-medium"
                   >
                     <div className="flex flex-col items-center gap-4">
                       <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
@@ -588,7 +588,7 @@ export default function ClientsView() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800"
             >
-              <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+              <div className="px-4 sm:px-6 lg:px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                 <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">
                   Tambah Klien Baru
                 </h3>
@@ -600,7 +600,7 @@ export default function ClientsView() {
                   <Plus className="w-5 h-5 rotate-45" />
                 </button>
               </div>
-              <form onSubmit={handleAddClient} className="p-8 space-y-6">
+              <form onSubmit={handleAddClient} className="p-4 sm:p-6 lg:p-8 space-y-6">
                 <div>
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                     Nama Klien
@@ -718,7 +718,7 @@ export default function ClientsView() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800"
             >
-              <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+              <div className="px-4 sm:px-6 lg:px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                 <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">
                   Edit Klien
                 </h3>
@@ -730,7 +730,7 @@ export default function ClientsView() {
                   <Plus className="w-5 h-5 rotate-45" />
                 </button>
               </div>
-              <form onSubmit={handleEditClient} className="p-8 space-y-6">
+              <form onSubmit={handleEditClient} className="p-4 sm:p-6 lg:p-8 space-y-6">
                 <div>
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                     Nama Klien
@@ -850,7 +850,7 @@ export default function ClientsView() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800 p-8"
+              className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800 p-4 sm:p-6 lg:p-8"
             >
               <div className="w-14 h-14 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mb-6">
                 <Trash2 className="w-6 h-6" />
@@ -904,7 +904,7 @@ export default function ClientsView() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800 p-8"
+              className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800 p-4 sm:p-6 lg:p-8"
             >
               <div className="w-14 h-14 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mb-6">
                 <RefreshCw className="w-6 h-6" />
@@ -948,7 +948,7 @@ export default function ClientsView() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800 p-8"
+              className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800 p-4 sm:p-6 lg:p-8"
             >
               <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mb-6">
                 <RotateCcw className="w-6 h-6" />

@@ -27,6 +27,11 @@ export const syncUsersToClients = async () => {
     let addedCount = 0;
 
     for (const user of users) {
+      // Abaikan (skip) user yang belum beli paket sama sekali
+      if (!user.plan && !user.planDetails) {
+        continue;
+      }
+
       // Find or create package based on user.plan
       let pkg = existingPackages.find(p => p.name.toLowerCase() === user.plan?.toLowerCase());
       if (!pkg) {

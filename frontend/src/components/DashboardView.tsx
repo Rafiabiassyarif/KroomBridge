@@ -1593,7 +1593,7 @@ export default function DashboardView({
               </p>
             </div>
 
-            <div className="relative z-10 rounded-2xl bg-white/40 dark:bg-black/30 backdrop-blur-xl border border-white/40 dark:border-white/[0.04] p-8 flex flex-col lg:flex-row items-center justify-between gap-6">
+            <div className="relative z-10 rounded-2xl bg-white/40 dark:bg-black/30 backdrop-blur-xl border border-white/40 dark:border-white/[0.04] p-4 sm:p-6 lg:p-8 flex flex-col xl:flex-row items-center justify-between gap-6">
               <motion.div
                 whileHover={{ y: -3 }}
                 className="flex flex-col items-center flex-1"
@@ -1612,7 +1612,7 @@ export default function DashboardView({
                 </p>
               </motion.div>
 
-              <div className="hidden lg:flex flex-col items-center justify-center">
+              <div className="hidden xl:flex flex-col items-center justify-center">
                 <div className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold mb-1.5 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/30 backdrop-blur-md flex items-center gap-1.5 shadow-lg shadow-emerald-500/10">
                   <Lock className="w-3 h-3" /> JWT Auth
                 </div>
@@ -1655,14 +1655,14 @@ export default function DashboardView({
                 </div>
               </motion.div>
 
-              <div className="hidden lg:flex flex-col items-center justify-center">
+              <div className="hidden xl:flex flex-col items-center justify-center">
                 <div className="text-[10px] text-sky-700 dark:text-sky-300 font-bold mb-1.5 bg-sky-500/10 px-3 py-1.5 rounded-lg border border-sky-500/30 backdrop-blur-md flex items-center gap-1.5 shadow-lg shadow-sky-500/10">
                   <ArrowRight className="w-3 h-3" /> Routing
                 </div>
                 <ArrowRight className="w-5 h-5 text-zinc-300 dark:text-zinc-600" />
               </div>
 
-              <div className="flex flex-col items-stretch flex-1 gap-2.5 w-full lg:w-auto">
+              <div className="flex flex-col items-stretch flex-1 min-w-0 gap-2.5 w-full xl:w-auto">
                 {(stats.requestsPerRoute.length > 0
                   ? stats.requestsPerRoute.slice(0, 3)
                   : [
@@ -1725,7 +1725,7 @@ export default function DashboardView({
         {/* Stat Cards */}
         <motion.div
           variants={containerVariants}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"
         >
           <StatCard
             label="Total Responses"
@@ -1775,7 +1775,7 @@ export default function DashboardView({
         {/* GPU Monitoring — kartu fixed: PC Putih GPU 0, GPU 1, PC Hitam GPU 0, GPU 1 */}
         <motion.div
           variants={containerVariants}
-          className="grid grid-cols-1 lg:grid-cols-2 gap-5"
+          className="grid grid-cols-1 xl:grid-cols-2 gap-5"
         >
           {EXPECTED_HOSTS.map((expected, i) => {
             const live = gpuList.find((g) => g.hostId === expected.hostId);

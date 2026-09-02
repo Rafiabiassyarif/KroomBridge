@@ -149,7 +149,7 @@ export default function SecurityView() {
 
   if (loading || !config)
     return (
-      <div className="flex items-center justify-center p-10">
+      <div className="flex items-center justify-center p-4 sm:p-6 lg:p-10">
         <div className="w-8 h-8 flex space-x-2">
           <div
             className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"
@@ -176,7 +176,7 @@ export default function SecurityView() {
     >
       <motion.div
         variants={itemVariants}
-        className="flex justify-between items-center bg-white dark:bg-slate-900/50 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group"
+        className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-slate-900/50 p-4 sm:p-6 lg:p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group gap-4 sm:gap-0"
       >
         <div className="absolute top-0 right-0 p-32 bg-gradient-to-bl from-rose-100/60 dark:from-rose-900/20 via-orange-50/40 dark:via-orange-900/10 to-yellow-50/40 dark:to-yellow-900/10 rounded-full blur-3xl -mr-16 -mt-16 opacity-80 group-hover:scale-110 transition-transform duration-700"></div>
         <div className="absolute bottom-0 left-0 p-24 bg-gradient-to-tr from-blue-50/40 dark:from-blue-900/20 to-indigo-50/40 dark:to-indigo-900/20 rounded-full blur-3xl -ml-16 -mb-16 opacity-60"></div>
@@ -226,7 +226,7 @@ export default function SecurityView() {
           </button>
         </div>
 
-        <div className="flex-1 p-8 lg:p-10 relative z-10">
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 lg:p-4 sm:p-6 lg:p-10 relative z-10">
           <AnimatePresence mode="wait">
             {activeTab === "ip" && (
               <motion.div
@@ -496,7 +496,7 @@ export default function SecurityView() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800"
             >
-              <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+              <div className="px-4 sm:px-6 lg:px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                 <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">
                   Tambah IP Terizinkan
                 </h3>
@@ -507,7 +507,7 @@ export default function SecurityView() {
                   <Plus className="w-4 h-4 rotate-45" />
                 </button>
               </div>
-              <form onSubmit={handleAddAllow} className="p-8 space-y-5">
+              <form onSubmit={handleAddAllow} className="p-4 sm:p-6 lg:p-8 space-y-5">
                 <div>
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                     Alamat IP / CIDR
@@ -568,7 +568,7 @@ export default function SecurityView() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden border border-rose-100 dark:border-rose-900/50"
             >
-              <div className="px-8 py-6 border-b border-rose-100 dark:border-rose-900/50 text-rose-800 dark:text-rose-400 flex justify-between items-center bg-rose-50 dark:bg-rose-900/20 border-t-4 border-t-rose-500">
+              <div className="px-4 sm:px-6 lg:px-8 py-6 border-b border-rose-100 dark:border-rose-900/50 text-rose-800 dark:text-rose-400 flex justify-between items-center bg-rose-50 dark:bg-rose-900/20 border-t-4 border-t-rose-500">
                 <h3 className="font-bold text-lg flex items-center gap-2">
                   <Database className="w-5 h-5" /> Blokir IP Definitif
                 </h3>
@@ -579,7 +579,7 @@ export default function SecurityView() {
                   <Plus className="w-4 h-4 rotate-45" />
                 </button>
               </div>
-              <form onSubmit={handleAddDeny} className="p-8 space-y-5">
+              <form onSubmit={handleAddDeny} className="p-4 sm:p-6 lg:p-8 space-y-5">
                 <div>
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                     Alamat IP Berbahaya

@@ -249,7 +249,7 @@ export default function ModelsView() {
         className="bg-white dark:bg-[#151921] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden"
       >
         {/* Card header */}
-        <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-6 pb-4 border-b border-slate-100 dark:border-slate-800 gap-4 sm:gap-0">
           <div className="flex items-center space-x-4">
             <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${meta.accent} flex items-center justify-center shadow-md`}>
               <Icon className="w-5 h-5 text-white" />
@@ -399,7 +399,7 @@ export default function ModelsView() {
               })}
               {list.length === 0 && !isLoading && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-slate-500 dark:text-slate-400 text-sm font-medium">
+                  <td colSpan={5} className="px-6 py-4 sm:py-6 lg:py-10 text-center text-slate-500 dark:text-slate-400 text-sm font-medium">
                     {errorMsg || `Tidak ada model dari ${meta.label}. Pastikan server reachable dan API key benar.`}
                   </td>
                 </tr>
@@ -417,7 +417,7 @@ export default function ModelsView() {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex justify-between items-center bg-white dark:bg-slate-900/50 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden"
+        className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-slate-900/50 p-4 sm:p-6 lg:p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden gap-4 sm:gap-0"
       >
         <div className="absolute top-0 right-0 p-32 bg-gradient-to-bl from-blue-100/60 dark:from-blue-900/20 via-sky-50/40 dark:via-sky-900/10 to-transparent rounded-full blur-3xl -mr-16 -mt-16 opacity-80 pointer-events-none"></div>
         <div className="relative z-10 flex-1">

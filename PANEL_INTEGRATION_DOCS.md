@@ -102,3 +102,32 @@ KroomBridge akan melakukan request ke backend Kroombox Panel untuk sinkronisasi 
     }
   ]
   ```
+
+---
+
+## 3. Webhook dari KroomBridge ke Panel (BARU)
+KroomBridge akan menembak HTTP POST ke Kroombox Panel setiap kali **Paket API** ditambah, diedit, atau dihapus langsung melalui KroomBridge Console. Hal ini dilakukan agar Panel mengetahui dan mensinkronisasikan daftar paketnya.
+
+**Endpoint yang harus disiapkan oleh Panel:**
+Silakan buat endpoint di backend Panel Anda dan atur URL-nya pada `.env` KroomBridge (`PANEL_WEBHOOK_URL=https://...`).
+
+**Contoh Payload Webhook:**
+```json
+{
+  "event": "package:created", // Bisa "package:created", "package:updated", atau "package:deleted"
+  "data": {
+    "id": "pkg_12345678",
+    "name": "Paket Premium",
+    "maxRequestsPerMinute": 100,
+    "monthlyQuota": 100000,
+    "quotaType": "token",
+    "allowOverage": false,
+    "overageRatePer1K": 0,
+    "allowedEndpoints": ["*"],
+    "price": 50000,
+    "description": "Paket terbaik",
+    "createdAt": "2026-09-02T10:00:00.000Z"
+  }
+}
+```
+*Catatan: Jika `event` adalah `package:deleted`, maka `data` hanya berisi `{ "id": "pkg_12345678" }`.*

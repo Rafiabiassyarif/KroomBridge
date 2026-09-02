@@ -57,7 +57,7 @@ export default function LoginView({ onLogin }: LoginViewProps) {
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         className="w-full max-w-[400px] relative z-10"
       >
-        <div className="bg-white dark:bg-zinc-900/80 border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl shadow-xl shadow-black/[0.03] dark:shadow-black/[0.3] p-8 backdrop-blur-xl">
+        <div className="bg-white dark:bg-zinc-900/80 border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl shadow-xl shadow-black/[0.03] dark:shadow-black/[0.3] p-4 sm:p-6 lg:p-8 backdrop-blur-xl">
           {/* Header */}
           <div className="text-center mb-8">
             <img src="/logo.png" alt="KroomBridge" className="w-40 h-40 object-contain mx-auto mb-2" />

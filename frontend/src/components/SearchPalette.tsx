@@ -274,12 +274,12 @@ export default function SearchPalette({ isOpen, onClose, onNavigate }: SearchPal
             {/* Results */}
             <div ref={listRef} className="max-h-[360px] overflow-y-auto py-2 px-2">
               {isLoading && !cachedData ? (
-                <div className="py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">
+                <div className="py-4 sm:py-6 lg:py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">
                   <div className="w-5 h-5 border-2 border-sky-500/30 border-t-sky-500 rounded-full animate-spin mx-auto mb-3" />
                   Loading data...
                 </div>
               ) : results.length === 0 ? (
-                <div className="py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">
+                <div className="py-4 sm:py-6 lg:py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">
                   No results found for "{query}"
                 </div>
               ) : (

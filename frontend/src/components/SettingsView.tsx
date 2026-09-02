@@ -241,7 +241,7 @@ export default function SettingsView() {
 
   if (loading)
     return (
-      <div className="flex items-center justify-center p-10">
+      <div className="flex items-center justify-center p-4 sm:p-6 lg:p-10">
         <div className="w-8 h-8 flex space-x-2">
           <div
             className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"
@@ -268,7 +268,7 @@ export default function SettingsView() {
     >
       <motion.div
         variants={itemVariants}
-        className="flex justify-between items-center bg-white/40 dark:bg-white/[0.03] backdrop-blur-xl p-8 rounded-3xl border border-white/50 dark:border-white/[0.06] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group"
+        className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white/40 dark:bg-white/[0.03] backdrop-blur-xl p-4 sm:p-6 lg:p-8 rounded-3xl border border-white/50 dark:border-white/[0.06] shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] relative overflow-hidden group gap-4 sm:gap-0"
       >
         <div className="absolute top-0 right-0 p-32 bg-gradient-to-bl from-blue-100/60 dark:from-blue-900/20 via-purple-50/40 dark:via-purple-900/10 to-pink-50/40 dark:to-pink-900/10 rounded-full blur-3xl -mr-16 -mt-16 opacity-80 group-hover:scale-110 transition-transform duration-700"></div>
         <div className="absolute bottom-0 left-0 p-24 bg-gradient-to-tr from-slate-50/40 dark:from-slate-800/40 to-slate-100/40 dark:to-slate-700/40 rounded-full blur-3xl -ml-16 -mb-16 opacity-60"></div>
@@ -291,7 +291,7 @@ export default function SettingsView() {
         variants={itemVariants}
         className="bg-white/40 dark:bg-white/[0.03] backdrop-blur-xl border border-white/50 dark:border-white/[0.06] rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] overflow-hidden"
       >
-        <div className="p-8 border-b border-white/50 dark:border-white/[0.06] flex justify-between items-center bg-white/60 dark:bg-white/[0.02] relative overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-white/50 dark:border-white/[0.06] flex justify-between items-center bg-white/60 dark:bg-white/[0.02] relative overflow-hidden">
           <div className="relative z-10">
             <h3 className="text-2xl font-black text-zinc-800 dark:text-white flex items-center space-x-3 tracking-tight">
               <div className="w-8 h-8 rounded-lg bg-white dark:bg-white/[0.04] shadow-sm border border-white/50 dark:border-white/[0.04] flex items-center justify-center">
@@ -305,7 +305,7 @@ export default function SettingsView() {
           </div>
         </div>
 
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {systemMessage && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
@@ -541,7 +541,7 @@ export default function SettingsView() {
         variants={itemVariants}
         className="bg-white/40 dark:bg-white/[0.03] backdrop-blur-xl border border-white/50 dark:border-white/[0.06] rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] overflow-hidden"
       >
-        <div className="p-8 border-b border-white/50 dark:border-white/[0.06] flex justify-between items-center bg-white/60 dark:bg-white/[0.02] relative overflow-hidden">
+        <div className="p-4 sm:p-6 lg:p-8 border-b border-white/50 dark:border-white/[0.06] flex justify-between items-center bg-white/60 dark:bg-white/[0.02] relative overflow-hidden">
           <div className="relative z-10">
             <h3 className="text-2xl font-black text-zinc-800 dark:text-white flex items-center space-x-3 tracking-tight">
               <div className="w-8 h-8 rounded-lg bg-white dark:bg-white/[0.04] shadow-sm border border-white/50 dark:border-white/[0.04] flex items-center justify-center">
@@ -565,10 +565,10 @@ export default function SettingsView() {
           <table className="w-full text-left text-sm">
             <thead className="bg-white/40 dark:bg-white/[0.04] border-b border-white/50 dark:border-white/[0.06] text-zinc-600 dark:text-zinc-400">
               <tr>
-                <th className="px-8 py-4 font-bold uppercase tracking-widest text-[11px]">
+                <th className="px-4 sm:px-6 lg:px-8 py-4 font-bold uppercase tracking-widest text-[11px]">
                   Nama / Kredensial
                 </th>
-                <th className="px-8 py-4 font-bold uppercase tracking-widest text-[11px] text-right">
+                <th className="px-4 sm:px-6 lg:px-8 py-4 font-bold uppercase tracking-widest text-[11px] text-right">
                   Aksi
                 </th>
               </tr>
@@ -582,7 +582,7 @@ export default function SettingsView() {
                   key={admin.id}
                   className="hover:bg-white/40 dark:hover:bg-white/[0.04] transition-colors group"
                 >
-                  <td className="px-8 py-5">
+                  <td className="px-4 sm:px-6 lg:px-8 py-5">
                     <div className="font-bold text-slate-900 dark:text-slate-100 text-base">
                       {admin.name}
                     </div>
@@ -590,7 +590,7 @@ export default function SettingsView() {
                       {admin.email}
                     </div>
                   </td>
-                  <td className="px-8 py-5 flex justify-end space-x-2 mt-2">
+                  <td className="px-4 sm:px-6 lg:px-8 py-5 flex justify-end space-x-2 mt-2">
                     <button
                       onClick={() => openEditModal(admin)}
                       className="w-9 h-9 rounded-xl bg-white dark:bg-white/[0.04] border border-white/50 dark:border-white/[0.04] text-slate-400 flex items-center justify-center hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-200 dark:hover:border-blue-800 transition-all opacity-0 group-hover:opacity-100 shadow-sm"
@@ -637,7 +637,7 @@ export default function SettingsView() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white dark:bg-[#0d0f14] rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-md overflow-hidden border border-white/50 dark:border-white/[0.06]"
             >
-              <div className="px-8 py-6 border-b border-white/50 dark:border-white/[0.06] flex justify-between items-center bg-white/60 dark:bg-white/[0.02]">
+              <div className="px-4 sm:px-6 lg:px-8 py-6 border-b border-white/50 dark:border-white/[0.06] flex justify-between items-center bg-white/60 dark:bg-white/[0.02]">
                 <h3 className="font-bold text-lg text-zinc-800 dark:text-white">
                   {showEditModal ? "Edit Admin" : "Tambah Admin Baru"}
                 </h3>
@@ -651,7 +651,7 @@ export default function SettingsView() {
                   <Plus className="w-4 h-4 rotate-45" />
                 </button>
               </div>
-              <form onSubmit={handleSave} className="p-8 space-y-5">
+              <form onSubmit={handleSave} className="p-4 sm:p-6 lg:p-8 space-y-5">
                 <div>
                   <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-2">
                     Nama
@@ -741,7 +741,7 @@ export default function SettingsView() {
               className="bg-white dark:bg-[#0d0f14] rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] w-full max-w-sm overflow-hidden text-center relative border border-white/50 dark:border-white/[0.06]"
             >
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-500 to-pink-500"></div>
-              <div className="p-10">
+              <div className="p-4 sm:p-6 lg:p-10">
                 <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/30 rounded-2xl mx-auto flex items-center justify-center mb-6">
                   <Trash2 className="w-8 h-8 text-rose-500 dark:text-rose-400" />
                 </div>
