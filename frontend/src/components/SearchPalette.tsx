@@ -5,19 +5,16 @@ import {
   LayoutDashboard,
   Users,
   Package as PackageIcon,
-  Combine,
   ShieldCheck,
   TerminalSquare,
-  Layers,
+  BookOpen,
   Settings,
   ArrowRight,
   Command,
   CornerDownLeft,
   X,
   User,
-  Globe,
   Box,
-  Cpu,
   Sparkles,
 } from "lucide-react";
 import { adminFetch } from "../lib/api";
@@ -31,7 +28,7 @@ interface SearchPaletteProps {
 
 interface SearchResult {
   id: string;
-  type: "navigation" | "client" | "package" | "route";
+  type: "navigation" | "client" | "package";
   label: string;
   description?: string;
   icon: React.ElementType;
@@ -42,11 +39,10 @@ const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, description: "Overview & statistics" },
   { id: "clients", label: "Clients & Access", icon: Users, description: "Manage API clients" },
   { id: "packages", label: "API Packages", icon: PackageIcon, description: "Manage packages & rate limits" },
-  { id: "routes", label: "Model API", icon: Cpu, description: "Configure model integrations" },
-  { id: "models", label: "Model AI", icon: Sparkles, description: "View Kroma AI budget estimator & model catalog" },
+  { id: "models", label: "Model AI", icon: Sparkles, description: "View AI models & multipliers" },
   { id: "security", label: "Security", icon: ShieldCheck, description: "IP filtering & security rules" },
   { id: "tester", label: "API Tester", icon: TerminalSquare, description: "Test API endpoints" },
-  { id: "architecture", label: "Architecture", icon: Layers, description: "System architecture overview" },
+  { id: "docs", label: "API Docs", icon: BookOpen, description: "API documentation & code examples" },
   { id: "settings", label: "Settings", icon: Settings, description: "System configuration" },
 ];
 
@@ -58,7 +54,6 @@ export default function SearchPalette({ isOpen, onClose, onNavigate }: SearchPal
   const [cachedData, setCachedData] = useState<{
     clients: any[];
     packages: any[];
-    routes: any[];
   } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -70,12 +65,10 @@ export default function SearchPalette({ isOpen, onClose, onNavigate }: SearchPal
       Promise.all([
         adminFetch("/api/admin/clients").then((r) => r.json()).catch(() => ({ clients: [] })),
         adminFetch("/api/admin/packages").then((r) => r.json()).catch(() => ({ packages: [] })),
-        adminFetch("/api/admin/routes").then((r) => r.json()).catch(() => ({ routes: [] })),
-      ]).then(([clientsRes, packagesRes, routesRes]) => {
+      ]).then(([clientsRes, packagesRes]) => {
         setCachedData({
           clients: clientsRes.clients || [],
           packages: packagesRes.packages || [],
-          routes: routesRes.routes || [],
         });
         setIsLoading(false);
       });
@@ -145,24 +138,6 @@ export default function SearchPalette({ isOpen, onClose, onNavigate }: SearchPal
             icon: Box,
             action: () => {
               onNavigate("packages");
-              onClose();
-            },
-          });
-        }
-      });
-
-      cachedData.routes.forEach((route: any) => {
-        const path = route.path || route.prefix || "";
-        const target = route.target || route.upstream || "";
-        if (path.toLowerCase().includes(q) || target.toLowerCase().includes(q)) {
-          items.push({
-            id: `route-${route.id || path}`,
-            type: "route",
-            label: path,
-            description: `Route → ${target}`,
-            icon: Globe,
-            action: () => {
-              onNavigate("routes");
               onClose();
             },
           });

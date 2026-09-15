@@ -106,6 +106,80 @@ export function normalizeModelName(raw: string): string {
   return m;
 }
 
+/**
+ * Dapatkan semua kemungkinan variasi nama sebuah model:
+ * nama asli, alias, versi tanpa prefix (oc/, cmc/, dll), dan versi suffix (-free).
+ */
+export function getModelVariants(modelName: string): string[] {
+  if (!modelName || typeof modelName !== "string") return [];
+  const raw = modelName.trim();
+  const lower = raw.toLowerCase();
+  const variants = new Set<string>([raw, lower]);
+
+  const meta = db.getMeta();
+  const aliases: Record<string, string> = meta.modelAliases || {};
+
+  // 1. Cek reverse alias & alias
+  for (const [orig, alias] of Object.entries(aliases)) {
+    if (alias.toLowerCase() === lower || orig.toLowerCase() === lower) {
+      variants.add(orig);
+      variants.add(orig.toLowerCase());
+      variants.add(alias);
+      variants.add(alias.toLowerCase());
+    }
+  }
+
+  // 2. Normalisasi / variasi prefix provider & -free suffix
+  const currentVariants = Array.from(variants);
+  for (const v of currentVariants) {
+    const clean = v.replace(
+      /^(oc|cmc|pchitam|pc-putih|pcp|airforce|commandcode-go|commandcode|lmstudio|ollama-local)\//i,
+      "",
+    );
+    variants.add(clean);
+    variants.add(clean.toLowerCase());
+
+    if (clean.toLowerCase().endsWith("-free")) {
+      const noFree = clean.slice(0, -5);
+      variants.add(noFree);
+      variants.add(noFree.toLowerCase());
+    }
+    if (v.toLowerCase().endsWith("-free")) {
+      const noFree = v.slice(0, -5);
+      variants.add(noFree);
+      variants.add(noFree.toLowerCase());
+    } else {
+      variants.add(v + "-free");
+      variants.add((v + "-free").toLowerCase());
+    }
+  }
+
+  return Array.from(variants);
+}
+
+/**
+ * Cek apakah sebuah model sedang dinonaktifkan oleh Administrator.
+ * Memeriksa semua varian: nama asli, alias, versi bersih tanpa prefix, maupun versi upstream.
+ */
+export function isModelDisabled(requestedModel: string): boolean {
+  if (!requestedModel || typeof requestedModel !== "string") return false;
+  const meta = db.getMeta();
+  const disabledModels: string[] = meta.disabledModels || [];
+  if (!disabledModels.length) return false;
+
+  const reqVariants = getModelVariants(requestedModel);
+
+  // Kumpulkan semua varian dari seluruh disabledModels
+  const allDisabledVariants = new Set<string>();
+  for (const d of disabledModels) {
+    for (const v of getModelVariants(d)) {
+      allDisabledVariants.add(v.toLowerCase());
+    }
+  }
+
+  return reqVariants.some((rv) => allDisabledVariants.has(rv.toLowerCase()));
+}
+
 // ─── Routing: tentukan upstream untuk sebuah model ─────────
 export type RouteTarget = {
   url: string; // base URL upstream (tanpa trailing slash)
@@ -121,7 +195,7 @@ export function resolveRouteTarget(
   const meta = db.getMeta();
   const aliases = meta.modelAliases || {};
   for (const [original, aliasName] of Object.entries(aliases)) {
-    if (raw === aliasName) {
+    if (raw.toLowerCase() === aliasName.toLowerCase() || raw.toLowerCase() === original.toLowerCase()) {
       raw = original;
       break;
     }
@@ -179,7 +253,7 @@ export function rewriteModelForUpstream(
   const meta = db.getMeta();
   const aliases = meta.modelAliases || {};
   for (const [original, aliasName] of Object.entries(aliases)) {
-    if (m === aliasName) {
+    if (m.toLowerCase() === aliasName.toLowerCase() || m.toLowerCase() === original.toLowerCase()) {
       m = original;
       break;
     }
@@ -246,7 +320,6 @@ export function rewriteModelForUpstream(
 // ke klien lewat endpoint /v1/models — hanya yang belum di-disable admin.
 export function getAvailableModels(): string[] {
   const meta = db.getMeta();
-  const disabled = meta.disabledModels || [];
 
   // Model gratis OpenCode tambahan (disuntikkan agar muncul di Hermes)
   // Kata "-free" disembunyikan agar *end-user* tidak tahu itu model gratis.
@@ -264,11 +337,13 @@ export function getAvailableModels(): string[] {
   ];
 
   const allModels = [...new Set([...kromaModels, ...ninerModels, ...injectedModels])].filter(
-    (m) => !disabled.some((d: string) => m === d || m.endsWith("/" + d)),
+    (m) => !isModelDisabled(m),
   );
 
   const aliases = meta.modelAliases || {};
-  const result = allModels.map(m => aliases[m] || m);
+  const result = allModels
+    .map(m => aliases[m] || m)
+    .filter(m => !isModelDisabled(m));
 
   return [...new Set(result)];
 }

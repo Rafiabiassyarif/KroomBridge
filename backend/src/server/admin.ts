@@ -1,8 +1,9 @@
 import express, { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import rateLimit from "express-rate-limit";
 import { v4 as uuidv4 } from "uuid";
-import { db } from "./db.js";
+import { db, reloadFromMySQL } from "./db.js";
 import type { Client, Package, Route, AdminUser } from "./db.js";
 import { getAllGpuMetrics, getGpuHistory } from "./gpuMetrics.js";
 import { broadcast } from "./eventBus.js";
@@ -13,10 +14,26 @@ const ADMIN_JWT_SECRET =
   process.env.ADMIN_JWT_SECRET || "kroombox_admin_super_secret!";
 
 // ============================================================
+// RATE LIMITER — Anti Brute-Force Login Admin
+// ============================================================
+// Membatasi percobaan login maksimal 5 kali gagal per 15 menit per IP.
+// Request yang berhasil (sukses login) TIDAK dihitung (skipSuccessfulRequests).
+export const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 menit
+  max: 5, // Maksimal 5 percobaan gagal per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: {
+    error: "Terlalu banyak percobaan login gagal dari IP ini. Akses dibatasi sementara selama 15 menit demi keamanan.",
+  },
+});
+
+// ============================================================
 // AUTH — Login Admin
 // POST /api/admin/login
 // ============================================================
-adminRouter.post("/login", (req: Request, res: Response) => {
+adminRouter.post("/login", adminLoginLimiter, (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -89,7 +106,8 @@ adminRouter.get("/validate-token", (req: Request, res: Response) => {
 // GET /api/admin/dashboard-stats
 // ============================================================
 adminRouter.get("/dashboard-stats", (req: Request, res: Response) => {
-  const stats = db.getDashboardStats();
+  const range = (req.query.range as string) || "24h";
+  const stats = db.getDashboardStats(range);
   res.json(stats);
 });
 
@@ -387,6 +405,25 @@ adminRouter.post("/sync-users", async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/admin/reload-db — Muat ulang data terbaru dari MySQL ke RAM
+adminRouter.post("/reload-db", async (req: Request, res: Response) => {
+  try {
+    await reloadFromMySQL();
+    broadcast({
+      type: "package:change",
+      data: { action: "reload", message: "Database reloaded from MySQL" },
+    });
+    res.json({
+      success: true,
+      message: "Berhasil memuat ulang data dari MySQL ke RAM",
+      packagesCount: db.getPackages().length,
+      clientsCount: db.getClients().length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/admin/clients — List semua klien
 adminRouter.get("/clients", (req: Request, res: Response) => {
   const clients = db.getClients();
@@ -629,9 +666,12 @@ adminRouter.post("/packages", (req: Request, res: Response) => {
     name,
     maxRequestsPerMinute,
     monthlyQuota,
+    quotaType,
+    costPerRequest,
     allowOverage,
     overageRatePer1K,
     allowedEndpoints,
+    allowedModels,
     price,
     description,
   } = req.body;
@@ -646,15 +686,22 @@ adminRouter.post("/packages", (req: Request, res: Response) => {
     return res.status(400).json({ error: "maxRequestsPerMinute minimal 1" });
   }
 
+  const resolvedQuotaType = quotaType === "request" ? "request" : quotaType === "token" ? "token" : "credit";
+  const resolvedCostPerRequest = Math.max(1, parseInt(String(costPerRequest || 1)));
+  const resolvedCostPer1KTokens = Math.max(1, parseInt(String(req.body.costPer1KTokens || 20)));
+
   const newPackage: Package = {
     id: `pkg_${uuidv4().replace(/-/g, "").slice(0, 8)}`,
     name,
     maxRequestsPerMinute: parseInt(String(maxRequestsPerMinute)),
     monthlyQuota: parseInt(String(monthlyQuota)),
-    quotaType: "token",
+    quotaType: resolvedQuotaType,
+    costPerRequest: resolvedCostPerRequest,
+    costPer1KTokens: resolvedCostPer1KTokens,
     allowOverage: !!allowOverage,
     overageRatePer1K: parseFloat(String(overageRatePer1K || 0)),
     allowedEndpoints: allowedEndpoints || ["*"],
+    allowedModels: allowedModels || ["*"],
     price: price ? parseInt(String(price)) : 0,
     description: description || "",
     createdAt: new Date().toISOString(),
@@ -683,8 +730,14 @@ adminRouter.patch("/packages/:id", (req: Request, res: Response) => {
     updates.monthlyQuota = parseInt(String(updates.monthlyQuota));
   if (updates.overageRatePer1K)
     updates.overageRatePer1K = parseFloat(String(updates.overageRatePer1K));
-  if (updates.price) updates.price = parseInt(String(updates.price));
-  updates.quotaType = "token"; // Paksa selalu token
+  if (updates.price !== undefined) updates.price = parseInt(String(updates.price));
+  if (updates.costPerRequest !== undefined)
+    updates.costPerRequest = Math.max(1, parseInt(String(updates.costPerRequest || 1)));
+  if (updates.costPer1KTokens !== undefined)
+    updates.costPer1KTokens = Math.max(1, parseInt(String(updates.costPer1KTokens || 20)));
+  if (updates.quotaType !== undefined) {
+    updates.quotaType = updates.quotaType === "request" ? "request" : updates.quotaType === "token" ? "token" : "credit";
+  }
 
   const updated = db.updatePackage(pkg.id, updates);
   broadcast({
@@ -987,8 +1040,8 @@ adminRouter.get("/users", (req: Request, res: Response) => {
 adminRouter.post("/users", (req: Request, res: Response) => {
   const { name, email, role, password } = req.body;
 
-  if (!name || !email) {
-    return res.status(400).json({ error: "name dan email wajib diisi" });
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: "name, email, dan password wajib diisi" });
   }
 
   // Cek duplikat email
@@ -996,7 +1049,7 @@ adminRouter.post("/users", (req: Request, res: Response) => {
   if (existing) {
     return res
       .status(409)
-      .json({ error: `Admin dengan email '${email}' sudah terdaftar` });
+      .json({ error: "Email sudah terdaftar sebagai admin" });
   }
 
   const allowedRoles = ["Admin", "Viewer", "Moderator"];
@@ -1011,7 +1064,7 @@ adminRouter.post("/users", (req: Request, res: Response) => {
     name,
     email,
     role: role || "Viewer",
-    password: bcrypt.hashSync(password || "admin123", 10),
+    password: bcrypt.hashSync(password, 10),
     createdAt: new Date().toISOString(),
   };
 

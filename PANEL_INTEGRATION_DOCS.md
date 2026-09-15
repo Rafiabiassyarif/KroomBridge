@@ -9,7 +9,7 @@ Kroombox Panel harus melakukan HTTP POST/GET ke KroomBridge saat ada perubahan d
 
 **Autentikasi (Wajib):**
 Setiap request ke KroomBridge harus menyertakan Header:
-`webhook_secret: kroombridge_126`
+`webhook_secret: whsec_a1039f0ab2581354eb871c7b0d80dde80aa8d5b83ac14cae`
 
 ### A. Pembelian Paket Baru (Beli Langganan API)
 - **Endpoint**: `POST /api/integration/webhook/purchase`
@@ -26,6 +26,8 @@ Setiap request ke KroomBridge harus menyertakan Header:
     // Jika KroomBridge belum mengenali 'packageId' ini, paket akan otomatis dibuat berdasarkan detail ini.
     "packageDetails": {
       "name": "Paket Pro",
+      "quotaType": "token",          // "token" atau "request" (default: "token")
+      "costPerRequest": 1,           // Jika quotaType = "request", kuota yang dipotong per hit (default: 1)
       "monthlyQuota": 500000,
       "maxRequestsPerMinute": 100,
       "allowedModels": ["gpt-4o-mini", "claude-3-haiku"], // model yang diizinkan
@@ -70,6 +72,59 @@ Setiap request ke KroomBridge harus menyertakan Header:
 - **Endpoint**: `GET /api/integration/packages`
 - **Tujuan**: Menarik daftar paket API KroomBridge secara dinamis untuk ditampilkan di halaman pembelian Kroombox Panel. (Jika Panel tidak punya master paket, bisa pakai ini. Jika Panel punya sistem paket sendiri, abaikan endpoint ini).
 - **Respons (JSON)**: Akan mengembalikan array objek paket yang mencakup `id`, `name`, `price`, `monthlyQuota`, `allowedEndpoints`, dan **`allowedModels`**.
+
+### F. Sinkronisasi Paket dari Panel ke KroomBridge (Buat / Edit Paket)
+- **Endpoint**: `POST /api/integration/webhook/package`
+- **Tujuan**: Dipanggil saat admin di Kroombox Panel membuat atau mengubah paket. Jika ID paket sudah ada, KroomBridge akan otomatis mengupdate paket tersebut. Jika belum ada, paket baru akan otomatis dibuat. Perubahan akan langsung tampil realtime di dashboard KroomBridge.
+- **Body Request (JSON)**:
+  ```json
+  {
+    "id": "pkg_pro",                  // Wajib (ID Paket di Panel)
+    "name": "Paket Pro",              // Wajib
+    "monthlyQuota": 1000000,          // Kuota bulanan
+    "maxRequestsPerMinute": 120,      // Rate limit per menit
+    "quotaType": "token",             // "token", "request", atau "credit"
+    "costPerRequest": 1,              // Jika quotaType = "request"
+    "costPer1KTokens": 20,            // Jika quotaType = "credit"
+    "allowOverage": false,
+    "overageRatePer1K": 0,
+    "allowedEndpoints": ["*"],
+    "allowedModels": ["*"],           // Daftar model yang diizinkan
+    "price": 75000,
+    "description": "Paket Pro Kroombox Panel"
+  }
+  ```
+
+### G. Edit Sebagian Field Paket dari Panel
+- **Endpoint**: `PATCH /api/integration/webhook/package/:id`
+- **Tujuan**: Mengupdate atribut paket tertentu (misal hanya harga atau kuota).
+- **Body Request (JSON)**:
+  ```json
+  {
+    "price": 85000,
+    "monthlyQuota": 1200000
+  }
+  ```
+
+### H. Hapus Paket dari Panel
+- **Endpoint**: `DELETE /api/integration/webhook/package/:id`
+- **Query Params**: `?force=true` (opsional jika masih ada klien terhubung)
+- **Tujuan**: Menghapus paket dari KroomBridge.
+
+### I. Unified Webhook Event Receiver (Alternatif Terpadu)
+- **Endpoint**: `POST /api/integration/webhook/event`
+- **Tujuan**: Menerima event webhook serbaguna dengan struktur format event standar.
+- **Body Request (JSON)**:
+  ```json
+  {
+    "event": "package:updated", // "package:created", "package:updated", atau "package:deleted"
+    "data": {
+      "id": "pkg_pro",
+      "name": "Paket Pro Max",
+      "monthlyQuota": 2000000
+    }
+  }
+  ```
 
 ---
 

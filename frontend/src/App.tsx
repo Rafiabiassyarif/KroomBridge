@@ -31,12 +31,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { cn } from "./lib/utils";
 import ClientsView from "./components/ClientsView";
 import PackagesView from "./components/PackagesView";
-import RoutesView from "./components/RoutesView";
 import DashboardView from "./components/DashboardView";
 import SecurityView from "./components/SecurityView";
 import SettingsView from "./components/SettingsView";
-import ApiKeyView from "./components/ApiKeyView";
-import ArchitectureView from "./components/ArchitectureView";
 import LoginView from "./components/LoginView";
 import ApiTester from "./components/ApiTester";
 import SearchPalette from "./components/SearchPalette";
@@ -143,13 +140,10 @@ export default function App() {
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "clients", label: "Clients & Access", icon: Users },
     { id: "packages", label: "API Packages", icon: PackageIcon },
-    { id: "routes", label: "Model API", icon: Cpu },
     { id: "models", label: "Model AI", icon: Sparkles },
     { id: "security", label: "Security", icon: ShieldCheck },
     { id: "tester", label: "API Tester", icon: TerminalSquare },
     { id: "docs", label: "API Docs", icon: BookOpen },
-    { id: "architecture", label: "Architecture", icon: Layers },
-    { id: "apikeys", label: "API Keys", icon: Key },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
@@ -380,13 +374,10 @@ export default function App() {
               {activeTab === "dashboard" && <DashboardView onNavigate={setActiveTab} />}
               {activeTab === "clients" && <ClientsView />}
               {activeTab === "packages" && <PackagesView />}
-              {activeTab === "routes" && <RoutesView />}
               {activeTab === "models" && <ModelsView />}
               {activeTab === "docs" && <DocsView />}
-              { activeTab === "security" && <SecurityView /> }
-              { activeTab === "architecture" && <ArchitectureView /> }
-              { activeTab === "apikeys" && <ApiKeyView /> }
-              { activeTab === "settings" && <SettingsView /> }
+              {activeTab === "security" && <SecurityView />}
+              {activeTab === "settings" && <SettingsView />}
             </motion.div>
           </AnimatePresence>
 

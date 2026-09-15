@@ -12,6 +12,9 @@ import {
   Check,
   Edit2,
   Trash2,
+  Coins,
+  Cpu,
+  Zap,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../lib/utils";
@@ -39,6 +42,23 @@ export default function ClientsView() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  const convertRpToTokens = (rp: number, costPer1K: number = 20) => {
+    const rate = costPer1K && costPer1K > 0 ? costPer1K : 20;
+    return Math.round((rp / rate) * 1000);
+  };
+
+  const formatTokensCompact = (tokens: number) => {
+    if (tokens >= 1_000_000) {
+      const millions = tokens / 1_000_000;
+      return `${millions % 1 === 0 ? millions.toFixed(0) : millions.toFixed(1)}M token`;
+    }
+    if (tokens >= 1_000) {
+      const thousands = tokens / 1_000;
+      return `${thousands % 1 === 0 ? thousands.toFixed(0) : thousands.toFixed(1)}K token`;
+    }
+    return `${tokens.toLocaleString("id-ID")} token`;
+  };
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newClientName, setNewClientName] = useState("");
@@ -284,18 +304,20 @@ export default function ClientsView() {
             Kelola aplikasi klien dan API key yang mengakses KroomBridge.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3 relative z-10">
+        <div className="flex flex-wrap items-center gap-3 relative z-10">
+
+
           <button
             onClick={handleSyncUsers}
             disabled={isSyncing}
-            className="flex items-center space-x-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 hover:-translate-y-0.5 transition-all disabled:opacity-50 outline-none"
+            className="flex items-center space-x-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 hover:-translate-y-0.5 transition-all disabled:opacity-50 outline-none cursor-pointer"
           >
             <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
             <span>Sync Users</span>
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:-translate-y-0.5 transition-all outline-none"
+            className="flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 hover:-translate-y-0.5 transition-all outline-none cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Tambah Klien</span>
@@ -314,7 +336,7 @@ export default function ClientsView() {
                 <th className="px-4 sm:px-6 lg:px-8 py-5">Nama Klien</th>
                 <th className="px-4 sm:px-6 lg:px-8 py-5">Paket</th>
                 <th className="px-4 sm:px-6 lg:px-8 py-5">Status</th>
-                <th className="px-4 sm:px-6 lg:px-8 py-5">Penggunaan</th>
+                <th className="px-4 sm:px-6 lg:px-8 py-5">Penggunaan Kuota</th>
                 <th className="px-4 sm:px-6 lg:px-8 py-5 text-right">Aksi</th>
               </tr>
             </thead>
@@ -380,13 +402,52 @@ export default function ClientsView() {
                         </span>
                       </td>
                       <td className="px-4 sm:px-6 lg:px-8 py-5">
-                        <div className="text-slate-800 dark:text-slate-100 font-bold">
-                          {client.usageThisMonth.toLocaleString()}{" "}
-                          <span className="text-slate-400 font-medium">
-                            / {activeQuota.toLocaleString()}{" "}
-                            token
-                          </span>
-                        </div>
+                        {(() => {
+                          const isToken = pkg?.quotaType === "token";
+                          const costPer1K = pkg?.costPer1KTokens || 20;
+                          const usedTokens = convertRpToTokens(client.usageThisMonth, costPer1K);
+                          const totalTokens = convertRpToTokens(activeQuota, costPer1K);
+
+                          return (
+                            <div className="select-none transition-all">
+                              {isToken ? (
+                                <div>
+                                  <div className="text-slate-800 dark:text-slate-100 font-extrabold text-sm flex items-center gap-1.5">
+                                    <span>{client.usageThisMonth.toLocaleString("id-ID")}</span>
+                                    <span className="text-slate-400 dark:text-slate-500 font-medium text-xs">
+                                      / {activeQuota.toLocaleString("id-ID")} token
+                                    </span>
+                                    <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-1.5 py-0.2 rounded-md">
+                                      {formatTokensCompact(activeQuota)}
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] text-blue-500 dark:text-blue-400 font-mono mt-0.5 flex items-center gap-1.5">
+                                    <Cpu className="w-3 h-3 text-blue-500" />
+                                    <span>Paket Kuota Token AI</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="text-slate-800 dark:text-slate-100 font-extrabold text-sm flex items-center gap-1.5">
+                                    <span>Rp {client.usageThisMonth.toLocaleString("id-ID")}</span>
+                                    <span className="text-slate-400 dark:text-slate-500 font-medium text-xs">
+                                      / Rp {activeQuota.toLocaleString("id-ID")}
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 flex items-center gap-1.5">
+                                    <Zap className="w-3 h-3 text-emerald-500" />
+                                    <span>
+                                      ≈ {usedTokens.toLocaleString("id-ID")} / {totalTokens.toLocaleString("id-ID")} token
+                                    </span>
+                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.2 rounded">
+                                      {formatTokensCompact(totalTokens)}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                         <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 mt-2 overflow-hidden">
                           <div
                             className={`h-1.5 rounded-full ${client.usageThisMonth / activeQuota > 0.8 ? "bg-rose-500" : "bg-gradient-to-r from-blue-500 to-indigo-500"}`}
@@ -675,15 +736,30 @@ export default function ClientsView() {
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                    Batas Kuota Bulanan Kustom
+                    Batas Kuota Bulanan Kustom {selectedPkgForAdd?.quotaType === "token" ? "(Token AI)" : "(Saldo Rp)"}
                   </label>
                   <input
                     type="number"
                     className="w-full border-slate-200 dark:border-slate-700 rounded-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 px-4 py-3 border bg-slate-50/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors outline-none dark:text-white"
-                    placeholder="Kosongkan untuk mengikuti paket"
+                    placeholder={selectedPkgForAdd?.quotaType === "token" ? "Kosongkan untuk mengikuti kuota paket (Token)" : "Kosongkan untuk mengikuti saldo paket (Rp)"}
                     value={newClientCustomQuota}
                     onChange={(e) => setNewClientCustomQuota(e.target.value)}
                   />
+                  {newClientCustomQuota && Number(newClientCustomQuota) > 0 && selectedPkgForAdd && (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-2 flex items-center gap-1.5">
+                      {selectedPkgForAdd.quotaType === "token" ? (
+                        <>
+                          <Cpu className="w-3.5 h-3.5 text-blue-500" />
+                          <span>Batas kustom: <strong>{Number(newClientCustomQuota).toLocaleString("id-ID")} Token AI</strong> ({formatTokensCompact(Number(newClientCustomQuota))})</span>
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>Saldo <strong>Rp {Number(newClientCustomQuota).toLocaleString("id-ID")}</strong> setara dengan pembatasan <strong>~{convertRpToTokens(Number(newClientCustomQuota), selectedPkgForAdd.costPer1KTokens).toLocaleString("id-ID")} token AI</strong> ({formatTokensCompact(convertRpToTokens(Number(newClientCustomQuota), selectedPkgForAdd.costPer1KTokens))})</span>
+                        </>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <div className="pt-4 flex justify-end space-x-3">
                   <button
@@ -802,12 +878,12 @@ export default function ClientsView() {
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                    Batas Kuota Bulanan Kustom
+                    Batas Kuota Bulanan Kustom {selectedPkgForEdit?.quotaType === "token" ? "(Token AI)" : "(Saldo Rp)"}
                   </label>
                   <input
                     type="number"
                     className="w-full border-slate-200 dark:border-slate-700 rounded-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 px-4 py-3 border bg-slate-50/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 transition-colors outline-none dark:text-white"
-                    placeholder="Kosongkan untuk mengikuti paket"
+                    placeholder={selectedPkgForEdit?.quotaType === "token" ? "Kosongkan untuk mengikuti kuota paket (Token)" : "Kosongkan untuk mengikuti saldo paket (Rp)"}
                     value={showEditModal.customQuota ?? ""}
                     onChange={(e) =>
                       setShowEditModal({
@@ -818,6 +894,21 @@ export default function ClientsView() {
                       })
                     }
                   />
+                  {showEditModal.customQuota && Number(showEditModal.customQuota) > 0 && selectedPkgForEdit && (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-2 flex items-center gap-1.5">
+                      {selectedPkgForEdit.quotaType === "token" ? (
+                        <>
+                          <Cpu className="w-3.5 h-3.5 text-blue-500" />
+                          <span>Batas kustom: <strong>{Number(showEditModal.customQuota).toLocaleString("id-ID")} Token AI</strong> ({formatTokensCompact(Number(showEditModal.customQuota))})</span>
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>Saldo <strong>Rp {Number(showEditModal.customQuota).toLocaleString("id-ID")}</strong> setara dengan pembatasan <strong>~{convertRpToTokens(Number(showEditModal.customQuota), selectedPkgForEdit.costPer1KTokens).toLocaleString("id-ID")} token AI</strong> ({formatTokensCompact(convertRpToTokens(Number(showEditModal.customQuota), selectedPkgForEdit.costPer1KTokens))})</span>
+                        </>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <div className="pt-4 flex justify-end space-x-3">
                   <button

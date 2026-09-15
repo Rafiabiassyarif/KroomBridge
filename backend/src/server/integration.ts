@@ -1,10 +1,41 @@
 import express, { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
-import { db } from "./db.js";
+import { db, reloadFromMySQL } from "./db.js";
+import { broadcast } from "./eventBus.js";
 
 export const integrationRouter = express.Router();
 
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "kroombridge_126";
+
+/**
+ * Helper untuk mencocokkan ID atau nama paket dari Panel secara fleksibel.
+ * Mendukung variasi seperti "free_tier", "Free Tier", "starter_ai", "Starter AI",
+ * "pro_ai_suite", "Pro AI Suite", "enterprise_compute", "Enterprise Compute", dll.
+ */
+export function findPackageFlexible(idOrName: string) {
+  if (!idOrName) return null;
+  const packages = db.getPackages();
+  const direct = db.getPackage(idOrName);
+  if (direct) return direct;
+
+  const target = String(idOrName).toLowerCase().replace(/[-_\s]/g, "");
+  return (
+    packages.find((p) => {
+      const pId = p.id.toLowerCase().replace(/[-_\s]/g, "");
+      const pName = p.name.toLowerCase().replace(/[-_\s]/g, "");
+      return (
+        pId === target ||
+        pName === target ||
+        pId === `pkg${target}` ||
+        target === `pkg${pId}` ||
+        pId.includes(target) ||
+        target.includes(pId) ||
+        pName.includes(target) ||
+        target.includes(pName)
+      );
+    }) || null
+  );
+}
 
 // ─── Middleware: Verifikasi Webhook Secret ────────────────
 const verifyWebhookSecret = (
@@ -46,7 +77,7 @@ integrationRouter.post(
       });
     }
 
-    let pkg = db.getPackage(packageId);
+    let pkg = findPackageFlexible(packageId);
     const { packageDetails } = req.body;
 
     if (!pkg) {
@@ -58,6 +89,8 @@ integrationRouter.post(
           allowedModels: packageDetails.allowedModels || ["*"],
           allowedEndpoints: packageDetails.allowedEndpoints || ["*"],
           maxRequestsPerMinute: packageDetails.maxRequestsPerMinute || 60,
+          quotaType: packageDetails.quotaType === "request" ? "request" : "token",
+          costPerRequest: packageDetails.costPerRequest ? Math.max(1, Number(packageDetails.costPerRequest)) : 1,
           allowOverage: packageDetails.allowOverage || false,
           overageRatePer1K: packageDetails.overageRatePer1K || 0,
           createdAt: new Date().toISOString(),
@@ -195,7 +228,7 @@ integrationRouter.post(
       return res.status(400).json({ error: "newPackageId wajib diisi." });
     }
 
-    let pkg = db.getPackage(newPackageId);
+    let pkg = findPackageFlexible(newPackageId);
     if (!pkg) {
       if (packageDetails) {
         pkg = db.createPackage({
@@ -218,7 +251,7 @@ integrationRouter.post(
         });
       }
     } else if (packageDetails) {
-      pkg = db.updatePackage(newPackageId, packageDetails);
+      pkg = db.updatePackage(pkg.id, packageDetails);
     }
 
     let client;
@@ -274,6 +307,8 @@ integrationRouter.get(
       packageId: client.packageId,
       packageName: pkg?.name,
       usageThisMonth: client.usageThisMonth,
+      quotaType: pkg?.quotaType || "token",
+      costPerRequest: pkg?.costPerRequest || 1,
       quotaRemaining: Math.max(0, activeQuota - client.usageThisMonth),
       quotaPercentage:
         activeQuota > 0
@@ -302,6 +337,8 @@ integrationRouter.get(
       price: p.price,
       description: p.description,
       monthlyQuota: p.monthlyQuota,
+      quotaType: p.quotaType || "token",
+      costPerRequest: p.costPerRequest || 1,
       maxRequestsPerMinute: p.maxRequestsPerMinute,
       allowOverage: p.allowOverage,
       allowedEndpoints: p.allowedEndpoints,
@@ -311,3 +348,259 @@ integrationRouter.get(
     res.json(packages);
   },
 );
+
+// ============================================================
+// POST /api/integration/webhook/package
+// ============================================================
+// Dipanggil oleh Kroombox Panel saat membuat atau mengubah paket di Panel.
+// Melakukan Upsert: jika package dengan ID tersebut sudah ada, lakukan update; jika belum, buat baru.
+integrationRouter.post(
+  "/webhook/package",
+  verifyWebhookSecret,
+  (req: Request, res: Response) => {
+    const {
+      id,
+      name,
+      monthlyQuota,
+      maxRequestsPerMinute,
+      quotaType,
+      costPerRequest,
+      costPer1KTokens,
+      allowOverage,
+      overageRatePer1K,
+      allowedEndpoints,
+      allowedModels,
+      price,
+      description,
+    } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: "Nama paket ('name') wajib diisi." });
+    }
+
+    const pkgId = id || `pkg_${uuidv4().replace(/-/g, "").slice(0, 8)}`;
+    const existing = db.getPackage(pkgId);
+
+    const resolvedQuotaType: "token" | "request" | "credit" =
+      quotaType === "request" ? "request" : quotaType === "token" ? "token" : "credit";
+
+    const payload = {
+      id: pkgId,
+      name,
+      monthlyQuota: monthlyQuota != null ? Number(monthlyQuota) : 0,
+      maxRequestsPerMinute:
+        maxRequestsPerMinute != null ? Number(maxRequestsPerMinute) : 60,
+      quotaType: resolvedQuotaType,
+      costPerRequest:
+        costPerRequest != null ? Math.max(1, Number(costPerRequest)) : 1,
+      costPer1KTokens:
+        costPer1KTokens != null ? Math.max(1, Number(costPer1KTokens)) : 20,
+      allowOverage: !!allowOverage,
+      overageRatePer1K: overageRatePer1K != null ? Number(overageRatePer1K) : 0,
+      allowedEndpoints: allowedEndpoints || ["*"],
+      allowedModels: allowedModels || ["*"],
+      price: price != null ? Number(price) : 0,
+      description: description || "",
+    };
+
+    let result;
+    let action: "created" | "updated";
+
+    if (existing) {
+      result = db.updatePackage(pkgId, payload);
+      action = "updated";
+    } else {
+      result = db.createPackage({
+        ...payload,
+        createdAt: new Date().toISOString(),
+      });
+      action = "created";
+    }
+
+    // Broadcast ke frontend KroomBridge agar halaman Packages realtime terupdate
+    broadcast({
+      type: "package:change",
+      data: { action, package: result },
+    });
+
+    res.status(action === "created" ? 201 : 200).json({
+      success: true,
+      message: `Paket '${name}' (${pkgId}) berhasil di-${action} via webhook Panel.`,
+      action,
+      data: result,
+    });
+  },
+);
+
+// ============================================================
+// PATCH /api/integration/webhook/package/:id
+// ============================================================
+// Dipanggil oleh Kroombox Panel saat mengedit sebagian field paket.
+integrationRouter.patch(
+  "/webhook/package/:id",
+  verifyWebhookSecret,
+  (req: Request, res: Response) => {
+    const pkgId = req.params.id;
+    const pkg = db.getPackage(pkgId);
+
+    if (!pkg) {
+      return res.status(404).json({ error: `Paket dengan ID '${pkgId}' tidak ditemukan.` });
+    }
+
+    const updates = { ...req.body };
+    if (updates.maxRequestsPerMinute != null)
+      updates.maxRequestsPerMinute = Number(updates.maxRequestsPerMinute);
+    if (updates.monthlyQuota != null)
+      updates.monthlyQuota = Number(updates.monthlyQuota);
+    if (updates.costPerRequest != null)
+      updates.costPerRequest = Math.max(1, Number(updates.costPerRequest));
+    if (updates.costPer1KTokens != null)
+      updates.costPer1KTokens = Math.max(1, Number(updates.costPer1KTokens));
+    if (updates.price != null) updates.price = Number(updates.price);
+    if (updates.overageRatePer1K != null)
+      updates.overageRatePer1K = Number(updates.overageRatePer1K);
+
+    const updated = db.updatePackage(pkgId, updates);
+
+    broadcast({
+      type: "package:change",
+      data: { action: "updated", package: updated },
+    });
+
+    res.json({
+      success: true,
+      message: `Paket '${pkg.name}' (${pkgId}) berhasil diperbarui via webhook Panel.`,
+      action: "updated",
+      data: updated,
+    });
+  },
+);
+
+// ============================================================
+// DELETE /api/integration/webhook/package/:id
+// ============================================================
+// Dipanggil oleh Kroombox Panel saat menghapus paket.
+integrationRouter.delete(
+  "/webhook/package/:id",
+  verifyWebhookSecret,
+  async (req: Request, res: Response) => {
+    const pkgId = req.params.id;
+    const pkg = db.getPackage(pkgId);
+
+    if (!pkg) {
+      return res.status(404).json({ error: `Paket dengan ID '${pkgId}' tidak ditemukan.` });
+    }
+
+    const isUsed = db.getClients().some((c) => c.packageId === pkgId);
+    if (isUsed && !req.query.force) {
+      return res.status(400).json({
+        error: `Tidak dapat menghapus paket '${pkg.name}' karena masih digunakan oleh klien.`,
+        hint: "Pindahkan klien ke paket lain atau gunakan parameter ?force=true untuk memaksakan penghapusan.",
+      });
+    }
+
+    await db.deletePackage(pkgId);
+
+    broadcast({
+      type: "package:change",
+      data: { action: "deleted", id: pkgId },
+    });
+
+    res.json({
+      success: true,
+      message: `Paket '${pkg.name}' (${pkgId}) berhasil dihapus via webhook Panel.`,
+      action: "deleted",
+      id: pkgId,
+    });
+  },
+);
+
+// ============================================================
+// POST /api/integration/webhook/event
+// ============================================================
+// Endpoint terpadu untuk menerima event webhook serbaguna dari Panel
+// Contoh event: "package:created", "package:updated", "package:deleted"
+integrationRouter.post(
+  "/webhook/event",
+  verifyWebhookSecret,
+  async (req: Request, res: Response) => {
+    const { event, data } = req.body;
+    if (!event || !data) {
+      return res.status(400).json({
+        error: "'event' dan 'data' wajib disertakan dalam request body.",
+      });
+    }
+
+    if (event === "package:created" || event === "package:updated") {
+      const pkgId = data.id || `pkg_${uuidv4().replace(/-/g, "").slice(0, 8)}`;
+      const existing = db.getPackage(pkgId);
+      const eventQuotaType: "token" | "request" | "credit" =
+        data.quotaType === "request" ? "request" : data.quotaType === "token" ? "token" : "credit";
+
+      const payload = {
+        id: pkgId,
+        name: data.name || pkgId,
+        monthlyQuota: data.monthlyQuota != null ? Number(data.monthlyQuota) : 0,
+        maxRequestsPerMinute:
+          data.maxRequestsPerMinute != null ? Number(data.maxRequestsPerMinute) : 60,
+        quotaType: eventQuotaType,
+        costPerRequest:
+          data.costPerRequest != null ? Math.max(1, Number(data.costPerRequest)) : 1,
+        costPer1KTokens:
+          data.costPer1KTokens != null ? Math.max(1, Number(data.costPer1KTokens)) : 20,
+        allowOverage: !!data.allowOverage,
+        overageRatePer1K:
+          data.overageRatePer1K != null ? Number(data.overageRatePer1K) : 0,
+        allowedEndpoints: data.allowedEndpoints || ["*"],
+        allowedModels: data.allowedModels || ["*"],
+        price: data.price != null ? Number(data.price) : 0,
+        description: data.description || "",
+      };
+
+      let result;
+      const action = existing ? "updated" : "created";
+      if (existing) {
+        result = db.updatePackage(pkgId, payload);
+      } else {
+        result = db.createPackage({
+          ...payload,
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      broadcast({ type: "package:change", data: { action, package: result } });
+      return res.json({ success: true, event, action, data: result });
+    }
+
+    if (event === "package:deleted") {
+      const pkgId = data.id;
+      if (pkgId && db.getPackage(pkgId)) {
+        await db.deletePackage(pkgId);
+        broadcast({
+          type: "package:change",
+          data: { action: "deleted", id: pkgId },
+        });
+        return res.json({ success: true, event, action: "deleted", id: pkgId });
+      }
+      return res.status(404).json({ error: "Paket tidak ditemukan" });
+    }
+
+    return res.status(400).json({ error: `Event '${event}' tidak dikenali.` });
+  },
+);
+
+// ============================================================
+// POST /api/integration/reload
+// ============================================================
+// Memuat ulang data dari MySQL ke memori RAM server
+integrationRouter.post(
+  "/reload",
+  verifyWebhookSecret,
+  async (req: Request, res: Response) => {
+    await reloadFromMySQL();
+    broadcast({ type: "package:change", data: null });
+    broadcast({ type: "client:change", data: null });
+    res.json({ success: true, message: "Data berhasil dimuat ulang dari MySQL ke RAM." });
+  },
+);
+

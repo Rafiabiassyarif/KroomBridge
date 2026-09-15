@@ -895,7 +895,7 @@ async function pollHost(cfg: SshHostConfig) {
   } catch (err: any) {
     const fc = (failureCount.get(cfg.hostId) || 0) + 1;
     failureCount.set(cfg.hostId, fc);
-    if (fc === 1 || fc % 12 === 0) {
+    if (fc === 1 || fc === 3 || (fc > 3 && fc % 120 === 0)) {
       const msg = String(err?.message || "");
       const isCfOriginDown =
         msg.includes("ECONNRESET") ||

@@ -1,8 +1,21 @@
 import express, { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import rateLimit from "express-rate-limit";
 import { db } from "./db.js";
 
 export const authRouter = express.Router();
+
+// Rate limiter proteksi brute-force token klien (maks 10 kegagalan per 15 menit per IP)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: {
+    error: "Terlalu banyak permintaan otentikasi gagal. Akses dibatasi sementara selama 15 menit.",
+  },
+});
 
 const JWT_SECRET = process.env.JWT_SECRET || "kroombox_super_secret_key_123!";
 const REFRESH_SECRET =
@@ -57,7 +70,7 @@ function ttlToSeconds(ttl: string): number {
 
 // ─── POST /api/auth/token ─────────────────────────────────
 // Mendapatkan Access Token menggunakan Client ID + Secret Key
-authRouter.post("/token", (req: Request, res: Response) => {
+authRouter.post("/token", authLimiter, (req: Request, res: Response) => {
   const { clientId, clientSecret } = req.body;
 
   if (!clientId || !clientSecret) {

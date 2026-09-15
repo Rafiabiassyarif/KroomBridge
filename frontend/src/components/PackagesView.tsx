@@ -1,10 +1,91 @@
 import { adminFetch } from "../lib/api";
 import React, { useState, useEffect } from "react";
 import { Package } from "../../../backend/src/server/db";
-import { Zap, Activity, Edit2, Trash2, Plus, Check, RefreshCw } from "lucide-react";
+import {
+  Zap,
+  Activity,
+  Edit2,
+  Trash2,
+  Plus,
+  Check,
+  RefreshCw,
+  Cpu,
+  Sparkles,
+  Layers,
+  Crown,
+  CheckCircle2,
+  ShieldCheck,
+  Sliders,
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAutoRefresh } from "../lib/useAutoRefresh";
 import { useSSE } from "../lib/useSSE";
+
+const TIER_ORDER = ["Free", "Starter", "Basic", "Pro", "Business", "Enterprise"];
+
+const TIER_META: Record<
+  string,
+  {
+    tag: string;
+    gradient: string;
+    iconBg: string;
+    borderActive: string;
+    profitMargin: string;
+    popular?: boolean;
+    description: string;
+  }
+> = {
+  Free: {
+    tag: "Tingkat Gratis",
+    gradient: "from-slate-50 to-gray-100",
+    iconBg: "text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800",
+    borderActive: "border-slate-200 dark:border-slate-800",
+    profitMargin: "0%",
+    description: "Akses uji coba gratis dengan saldo awal Rp 5.000 untuk semua model AI.",
+  },
+  Starter: {
+    tag: "Tingkat Pemula",
+    gradient: "from-sky-50 to-blue-50",
+    iconBg: "text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-900/30",
+    borderActive: "border-slate-100 dark:border-slate-800",
+    profitMargin: "28.6%",
+    description: "Cocok untuk testing & eksplorasi integrasi awal.",
+  },
+  Basic: {
+    tag: "Paling Populer",
+    gradient: "from-emerald-50 to-teal-50",
+    iconBg: "text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30",
+    borderActive: "border-emerald-300/80 dark:border-emerald-700/60 ring-2 ring-emerald-500/20",
+    profitMargin: "23.1%",
+    popular: true,
+    description: "Pilihan favorit untuk project personal & website kecil.",
+  },
+  Pro: {
+    tag: "Rekomendasi Dev",
+    gradient: "from-indigo-50 to-purple-50",
+    iconBg: "text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30",
+    borderActive: "border-indigo-300/80 dark:border-indigo-700/60 ring-2 ring-indigo-500/20",
+    profitMargin: "20.0%",
+    popular: true,
+    description: "Kapasitas ideal untuk freelancer & software engineer aktif.",
+  },
+  Business: {
+    tag: "Skala Bisnis",
+    gradient: "from-amber-50 to-orange-50",
+    iconBg: "text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30",
+    borderActive: "border-slate-100 dark:border-slate-800",
+    profitMargin: "16.7%",
+    description: "Untuk tim & aplikasi produksi dengan traffic stabil.",
+  },
+  Enterprise: {
+    tag: "Solusi Skala Besar",
+    gradient: "from-rose-50 to-purple-50",
+    iconBg: "text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/30",
+    borderActive: "border-slate-100 dark:border-slate-800",
+    profitMargin: "16.7%",
+    description: "Kapasitas maksimum dengan rate limit tertinggi.",
+  },
+};
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -40,11 +121,13 @@ export default function PackagesView() {
   const [formData, setFormData] = useState<Partial<Package>>({
     name: "",
     maxRequestsPerMinute: 60,
-    monthlyQuota: 10000,
-    quotaType: "token",
+    monthlyQuota: 35000,
+    quotaType: "credit",
+    costPerRequest: 1,
+    costPer1KTokens: 20,
     allowOverage: false,
     overageRatePer1K: 0,
-    price: 0,
+    price: 35000,
     allowedEndpoints: ["*"],
     allowedModels: [],
   });
@@ -150,11 +233,13 @@ export default function PackagesView() {
     setFormData({
       name: "",
       maxRequestsPerMinute: 60,
-      monthlyQuota: 10000,
-      quotaType: "token",
+      monthlyQuota: 25000,
+      quotaType: "credit",
+      costPerRequest: 1,
+      costPer1KTokens: 20,
       allowOverage: false,
       overageRatePer1K: 0,
-      price: 0,
+      price: 35000,
       allowedEndpoints: ["*"],
       allowedModels: ["*"],
     });
@@ -162,7 +247,12 @@ export default function PackagesView() {
   };
 
   const openEditModal = (pkg: Package) => {
-    setFormData({ ...pkg });
+    setFormData({
+      ...pkg,
+      quotaType: pkg.quotaType || "credit",
+      costPerRequest: pkg.costPerRequest || 1,
+      costPer1KTokens: pkg.costPer1KTokens || 20,
+    });
     setShowEditModal(pkg);
   };
 
@@ -221,170 +311,184 @@ export default function PackagesView() {
 
 
 
+
+
+      {/* ─── Detail Cards Grid ─── */}
       <motion.div
         variants={containerVariants}
         className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
       >
-        {packages.map((pkg, idx) => {
-          // Calculate gradient based on index to differentiate packages
-          const gradients = [
-            "from-blue-50 to-indigo-50",
-            "from-emerald-50 to-teal-50",
-            "from-purple-50 to-pink-50",
-            "from-amber-50 to-orange-50",
-          ];
-          const iconColors = [
-            "text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30",
-            "text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30",
-            "text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30",
-            "text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30",
-          ];
-          const buttonHoverTextColors = [
-            "hover:text-blue-600 dark:hover:text-blue-400",
-            "hover:text-emerald-600 dark:hover:text-emerald-400",
-            "hover:text-purple-600 dark:hover:text-purple-400",
-            "hover:text-amber-600 dark:hover:text-amber-400",
-          ];
-          const accentColor = idx % gradients.length;
+        {[...packages]
+          .sort((a, b) => {
+            const indexA = TIER_ORDER.indexOf(a.name);
+            const indexB = TIER_ORDER.indexOf(b.name);
+            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+            return (a.price || 0) - (b.price || 0);
+          })
+          .map((pkg, idx) => {
+            const meta = TIER_META[pkg.name];
+            const gradientClass = meta?.gradient || "from-blue-50 to-indigo-50";
+            const iconBgClass = meta?.iconBg || "text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30";
+            const borderClass = meta?.borderActive || "border-slate-100 dark:border-slate-800";
 
-          return (
-            <motion.div
-              variants={itemVariants}
-              whileHover={{ y: -5 }}
-              key={pkg.id}
-              className="bg-white dark:bg-slate-900/50 border text-sm border-slate-100 dark:border-slate-800 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] p-4 sm:p-6 lg:p-8 relative overflow-hidden flex flex-col group cursor-default"
-            >
-              <div
-                className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl ${gradients[accentColor]} dark:opacity-10 rounded-full blur-3xl -mr-10 -mt-10 opacity-70 group-hover:scale-125 transition-transform duration-700`}
-              ></div>
-
-              <div className="flex items-start justify-between mb-6 relative z-10">
-                <div>
-                  <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                    {pkg.name}
-                  </h3>
-                  <p className="text-slate-400 dark:text-slate-500 font-mono text-xs mt-1.5 flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 px-2 py-0.5 rounded-md w-max border border-slate-100 dark:border-slate-800">
-                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>{" "}
-                    ID: {pkg.id}
-                  </p>
-                </div>
+            return (
+              <motion.div
+                variants={itemVariants}
+                whileHover={{ y: -5 }}
+                key={pkg.id}
+                className={`bg-white dark:bg-slate-900/50 border text-sm ${borderClass} rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] p-4 sm:p-6 lg:p-8 relative overflow-hidden flex flex-col group cursor-default`}
+              >
                 <div
-                  className={`w-14 h-14 ${iconColors[accentColor]} rounded-2xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300`}
-                >
-                  <Zap className="w-6 h-6" />
-                </div>
-              </div>
+                  className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl ${gradientClass} dark:opacity-10 rounded-full blur-3xl -mr-10 -mt-10 opacity-70 group-hover:scale-125 transition-transform duration-700`}
+                ></div>
 
-              <div className="space-y-4 mt-2 flex-1 relative z-10">
-                <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/80">
-                  <span className="text-slate-500 dark:text-slate-400 font-semibold flex items-center">
-                    <Activity className="w-4 h-4 mr-2 text-slate-400 dark:text-slate-500" />{" "}
-                    Harga Paket
-                  </span>
-                  <span className="font-extrabold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700">
-                    {pkg.price === 0 || !pkg.price ? (
-                      <span className="text-emerald-600 dark:text-emerald-400">Gratis</span>
-                    ) : (
-                      `Rp ${pkg.price.toLocaleString("id-ID")}`
-                    )}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/80">
-                  <span className="text-slate-500 dark:text-slate-400 font-semibold flex items-center">
-                    <Activity className="w-4 h-4 mr-2 text-slate-400 dark:text-slate-500" />{" "}
-                    Rate Limit
-                  </span>
-                  <span className="font-extrabold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700">
-                    {pkg.maxRequestsPerMinute}{" "}
-                    <span className="text-slate-500 dark:text-slate-400 font-medium text-xs">
-                      req/mnt
-                    </span>
-                  </span>
-                </div>
-                <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/80">
-                  <span className="text-slate-500 dark:text-slate-400 font-semibold">
-                    Kuota Bulanan
-                  </span>
-                  <span className="font-extrabold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700">
-                    {pkg.monthlyQuota.toLocaleString()}{" "}
-                    <span className="text-slate-500 dark:text-slate-400 font-medium text-xs">
-                      tokens
-                    </span>
-                  </span>
-                </div>
-                <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/80">
-                  <span className="text-slate-500 dark:text-slate-400 font-semibold">
-                    Overage
-                  </span>
-                  {pkg.allowOverage ? (
-                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1 rounded-lg border border-emerald-100/50 dark:border-emerald-800/50 shadow-sm">
-                      ${pkg.overageRatePer1K}{" "}
-                      <span className="text-emerald-700/60 dark:text-emerald-400/60 font-medium text-xs">
-                        / 1k tokens
-                      </span>
-                    </span>
-                  ) : (
-                    <span className="font-extrabold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 px-3 py-1 rounded-lg border border-rose-100/50 dark:border-rose-800/50 shadow-sm text-[11px] uppercase tracking-wider">
-                      Putus Otomatis
-                    </span>
-                  )}
-                </div>
-                <div className="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800/80">
-                  <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] uppercase tracking-widest block mb-3">
-                    Model AI yang Diizinkan
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    {pkg.allowedModels && pkg.allowedModels.length > 0 && !pkg.allowedModels.includes("*") ? (
-                      pkg.allowedModels.filter(m => availableModels.includes(m)).length > 0 ? (
-                        pkg.allowedModels.filter(m => availableModels.includes(m)).map((m, idx) => (
-                          <span
-                            key={idx}
-                            className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/30 dark:to-blue-900/20 border border-indigo-100/50 dark:border-indigo-700/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-md text-xs font-mono font-bold shadow-sm"
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400 opacity-70"></span>
-                            {m}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-xs text-slate-400 italic">Tidak ada model aktif yang diizinkan</span>
-                      )
-                    ) : (
-                      <div className="w-full bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-100/50 dark:border-emerald-800/30 rounded-xl p-3 flex items-center gap-3">
-                        <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300 leading-none mb-1">Akses Tanpa Batas</p>
-                          <p className="text-[10px] font-bold text-emerald-600/60 dark:text-emerald-400/60 uppercase tracking-wider leading-none">Semua Model (*)</p>
-                        </div>
-                      </div>
-                    )}
+                {meta?.popular && (
+                  <div className="absolute top-0 right-0">
+                    <div className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-[10px] tracking-wider uppercase px-4 py-1 rounded-bl-2xl shadow-sm flex items-center gap-1">
+                      <Sparkles className="w-2.5 h-2.5" />
+                      {meta.tag}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-start justify-between mb-4 relative z-10">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+                        {pkg.name}
+                      </h3>
+                      {!meta?.popular && meta?.tag && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                          {meta.tag}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-slate-400 dark:text-slate-500 font-mono text-xs mt-1.5 flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 px-2 py-0.5 rounded-md w-max border border-slate-100 dark:border-slate-800">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>{" "}
+                      ID: {pkg.id}
+                    </p>
+                  </div>
+                  <div
+                    className={`w-14 h-14 ${iconBgClass} rounded-2xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300`}
+                  >
+                    <Zap className="w-6 h-6" />
                   </div>
                 </div>
-              </div>
 
-              <div className="mt-6 flex justify-end space-x-2 pt-4 border-t border-slate-100 dark:border-slate-800/80">
-                <button
-                  onClick={() => openEditModal(pkg)}
-                  className={`text-slate-400 ${buttonHoverTextColors[accentColor]} transition-colors p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg outline-none`}
-                  title="Edit Paket"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setPackageToDelete(pkg.id)}
-                  className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors p-2 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg outline-none"
-                  title="Hapus Paket"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+                {meta?.description && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 relative z-10">
+                    {meta.description}
+                  </p>
+                )}
 
-            </motion.div>
-          );
-        })}
+                <div className="space-y-4 mt-2 flex-1 relative z-10">
+                  <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/80">
+                    <span className="text-slate-500 dark:text-slate-400 font-semibold flex items-center">
+                      <Activity className="w-4 h-4 mr-2 text-slate-400 dark:text-slate-500" />{" "}
+                      Harga
+                    </span>
+                    <span className="font-extrabold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700 flex items-baseline gap-1">
+                      {pkg.price === 0 || !pkg.price ? (
+                        <span className="text-emerald-600 dark:text-emerald-400">Gratis</span>
+                      ) : (
+                        <span>Rp {pkg.price.toLocaleString("id-ID")}</span>
+                      )}
+                      <span className="text-slate-500 dark:text-slate-400 font-medium text-xs">
+                        / bulan
+                      </span>
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/80">
+                    <span className="text-slate-500 dark:text-slate-400 font-semibold flex items-center">
+                      <Activity className="w-4 h-4 mr-2 text-slate-400 dark:text-slate-500" />{" "}
+                      Rate Limit
+                    </span>
+                    <span className="font-extrabold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700">
+                      {pkg.maxRequestsPerMinute}{" "}
+                      <span className="text-slate-500 dark:text-slate-400 font-medium text-xs">
+                        req/mnt
+                      </span>
+                    </span>
+                  </div>
+
+
+
+                  <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/80">
+                    <span className="text-slate-500 dark:text-slate-400 font-semibold">
+                      Overage
+                    </span>
+                    {pkg.allowOverage ? (
+                      <span className="font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1 rounded-lg border border-emerald-100/50 dark:border-emerald-800/50 shadow-sm">
+                        ${pkg.overageRatePer1K}{" "}
+                        <span className="text-emerald-700/60 dark:text-emerald-400/60 font-medium text-xs">
+                          / 1k {pkg.quotaType === "request" ? "req" : "tokens"}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="font-extrabold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 px-3 py-1 rounded-lg border border-rose-100/50 dark:border-rose-800/50 shadow-sm text-[11px] uppercase tracking-wider">
+                        Putus Otomatis
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800/80">
+                    <span className="text-slate-500 dark:text-slate-400 font-bold text-[10px] uppercase tracking-widest block mb-3">
+                      Model AI yang Diizinkan
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {pkg.allowedModels && pkg.allowedModels.length > 0 && !pkg.allowedModels.includes("*") ? (
+                        pkg.allowedModels.filter(m => availableModels.includes(m)).length > 0 ? (
+                          pkg.allowedModels.filter(m => availableModels.includes(m)).map((m, idx) => (
+                            <span
+                              key={idx}
+                              className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/30 dark:to-blue-900/20 border border-indigo-100/50 dark:border-indigo-700/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-md text-xs font-mono font-bold shadow-sm"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400 opacity-70"></span>
+                              {m}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">Tidak ada model aktif yang diizinkan</span>
+                        )
+                      ) : (
+                        <div className="w-full bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-100/50 dark:border-emerald-800/30 rounded-xl p-3 flex items-center gap-3">
+                          <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300 leading-none mb-1">Akses Tanpa Batas</p>
+                            <p className="text-[10px] font-bold text-emerald-600/60 dark:text-emerald-400/60 uppercase tracking-wider leading-none">Semua Model (*)</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end space-x-2 pt-4 border-t border-slate-100 dark:border-slate-800/80">
+                  <button
+                    onClick={() => openEditModal(pkg)}
+                    className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg outline-none cursor-pointer"
+                    title="Edit Paket"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setPackageToDelete(pkg.id)}
+                    className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors p-2 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg outline-none cursor-pointer"
+                    title="Hapus Paket"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </motion.div>
+            );
+          })}
       </motion.div>
 
       <AnimatePresence>
@@ -436,7 +540,7 @@ export default function PackagesView() {
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                      Harga Paket (Rp)
+                      Harga Paket (Rp / bulan)
                     </label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 dark:text-slate-500">
@@ -457,8 +561,67 @@ export default function PackagesView() {
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {/* Pilihan Tipe Kuota Paket */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                    Tipe Kuota Paket
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Option 1: Credit Balance (Command Code style) */}
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, quotaType: "credit", costPer1KTokens: formData.costPer1KTokens || 20 })}
+                      className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
+                        formData.quotaType === "credit" || (!formData.quotaType && formData.quotaType !== "token")
+                          ? "bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm"
+                          : "bg-slate-50/50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/60 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          Saldo AI (Rp)
+                        </span>
+                        {(formData.quotaType === "credit" || (!formData.quotaType && formData.quotaType !== "token")) && (
+                          <div className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">
+                            <Check className="w-2.5 h-2.5" />
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                        Model Command Code. Saldo rupiah terpotong per token & model rate.
+                      </span>
+                    </button>
 
+                    {/* Option 2: Token based */}
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, quotaType: "token" })}
+                      className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer ${
+                        formData.quotaType === "token"
+                          ? "bg-blue-50/80 dark:bg-blue-900/20 border-blue-500 ring-2 ring-blue-500/20 shadow-sm"
+                          : "bg-slate-50/50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/60 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <Cpu className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                          Token AI
+                        </span>
+                        {formData.quotaType === "token" && (
+                          <div className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">
+                            <Check className="w-2.5 h-2.5" />
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                        Kuota total token AI prompt + completion * multiplier.
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                       Rate Limit <span className="text-slate-400 dark:text-slate-500 font-medium ml-1">(req/mnt)</span>
@@ -478,20 +641,33 @@ export default function PackagesView() {
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                      Kuota Bulanan <span className="text-slate-400 dark:text-slate-500 font-medium ml-1">(tokens)</span>
+                      {formData.quotaType === "credit" || (!formData.quotaType && formData.quotaType !== "token")
+                        ? "Saldo AI Diberikan (Rp)"
+                        : "Kuota Bulanan (tokens)"}
                     </label>
-                    <input
-                      type="number"
-                      required
-                      className="w-full border border-slate-200 dark:border-slate-700/60 rounded-xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 px-4 py-3 bg-slate-50/50 dark:bg-[#0f172a]/40 hover:bg-white dark:hover:bg-[#0f172a]/80 transition-all outline-none font-mono dark:text-white"
-                      value={formData.monthlyQuota}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          monthlyQuota: Number(e.target.value),
-                        })
-                      }
-                    />
+                    <div className="relative">
+                      {(formData.quotaType === "credit" || (!formData.quotaType && formData.quotaType !== "token")) && (
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 dark:text-slate-500">
+                          Rp
+                        </span>
+                      )}
+                      <input
+                        type="number"
+                        required
+                        className={`w-full border border-slate-200 dark:border-slate-700/60 rounded-xl shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 py-3 bg-slate-50/50 dark:bg-[#0f172a]/40 hover:bg-white dark:hover:bg-[#0f172a]/80 transition-all outline-none font-mono dark:text-white ${
+                          formData.quotaType === "credit" || (!formData.quotaType && formData.quotaType !== "token")
+                            ? "pl-11 pr-4"
+                            : "px-4"
+                        }`}
+                        value={formData.monthlyQuota}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            monthlyQuota: Number(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
 

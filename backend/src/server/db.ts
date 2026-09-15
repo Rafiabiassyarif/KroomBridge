@@ -38,7 +38,9 @@ export const initMySQL = async () => {
         description text,
         monthlyQuota int NOT NULL DEFAULT '0',
         maxRequestsPerMinute int NOT NULL DEFAULT '60',
-        quotaType varchar(50) NOT NULL DEFAULT 'request',
+        quotaType varchar(50) NOT NULL DEFAULT 'credit',
+        costPerRequest int NOT NULL DEFAULT '1',
+        costPer1KTokens int NOT NULL DEFAULT '20',
         allowOverage tinyint(1) NOT NULL DEFAULT '0',
         overageRatePer1K float NOT NULL DEFAULT '0',
         allowedEndpoints json DEFAULT NULL,
@@ -165,7 +167,58 @@ export const initMySQL = async () => {
     }
   }
 
-  // Sinkronisasi awal: Load dari MySQL ke RAM
+  try {
+    await pool.query(
+      "ALTER TABLE packages ADD COLUMN IF NOT EXISTS costPerRequest INT NOT NULL DEFAULT 1",
+    );
+  } catch (err: any) {
+    if (
+      err?.code === "ER_PARSE_ERROR" ||
+      String(err?.message || "").includes("syntax")
+    ) {
+      try {
+        const [cols]: any = await pool.query(
+          "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'packages' AND COLUMN_NAME = 'costPerRequest'",
+        );
+        if (Array.isArray(cols) && cols.length === 0) {
+          await pool.query(
+            "ALTER TABLE packages ADD COLUMN costPerRequest INT NOT NULL DEFAULT 1",
+          );
+        }
+      } catch {
+      }
+    }
+  }
+
+  try {
+    await pool.query(
+      "ALTER TABLE packages ADD COLUMN IF NOT EXISTS costPer1KTokens INT NOT NULL DEFAULT 20",
+    );
+  } catch (err: any) {
+    if (
+      err?.code === "ER_PARSE_ERROR" ||
+      String(err?.message || "").includes("syntax")
+    ) {
+      try {
+        const [cols]: any = await pool.query(
+          "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'packages' AND COLUMN_NAME = 'costPer1KTokens'",
+        );
+        if (Array.isArray(cols) && cols.length === 0) {
+          await pool.query(
+            "ALTER TABLE packages ADD COLUMN costPer1KTokens INT NOT NULL DEFAULT 20",
+          );
+        }
+      } catch {
+      }
+    }
+  }
+
+  await reloadFromMySQL();
+};
+
+export const reloadFromMySQL = async () => {
+  if (!pool) return;
+  // Sinkronisasi: Load dari MySQL ke RAM
   const [admins] = await pool.query("SELECT * FROM admins");
   const [packages] = await pool.query("SELECT * FROM packages");
   const [clients] = await pool.query("SELECT * FROM clients");
@@ -186,7 +239,9 @@ export const initMySQL = async () => {
         ? JSON.parse(p.allowedModels)
         : p.allowedModels,
     allowOverage: !!p.allowOverage,
-    quotaType: "token", // Paksa selalu token
+    quotaType: (p.quotaType === "request" ? "request" : p.quotaType === "token" ? "token" : "credit") as "token" | "request" | "credit",
+    costPerRequest: p.costPerRequest != null ? Math.max(1, Number(p.costPerRequest)) : 1,
+    costPer1KTokens: p.costPer1KTokens != null ? Math.max(1, Number(p.costPer1KTokens)) : 20,
   }));
   const formattedClients = (clients as any[]).map((c) => ({
     ...c,
@@ -235,7 +290,9 @@ export type Package = {
   name: string;
   maxRequestsPerMinute: number;
   monthlyQuota: number;
-  quotaType?: "token";
+  quotaType?: "token" | "request" | "credit";
+  costPerRequest?: number;
+  costPer1KTokens?: number;
   allowOverage: boolean;
   overageRatePer1K: number;
   allowedEndpoints: string[];
@@ -376,7 +433,7 @@ const defaultData: DatabaseSchema = {
       name: "Admin",
       email: "admin@kroombox.id",
       role: "Admin",
-      password: bcrypt.hashSync("admin123", 10),
+      password: "$2b$10$KhIDSUZnewpaQ6UCNPjNsu3ZqkvEeZ/RTXgE69QvWz3gBRGfJQ6te",
       createdAt: new Date().toISOString(),
     },
   ],
@@ -760,13 +817,50 @@ export class DatabaseCache {
   }
 
   // ─── STATS ───────────────────────────────────────────────
-  getDashboardStats() {
+  getDashboardStats(range: string = "24h") {
+    const now = Date.now();
+    let windowMs = 24 * 60 * 60 * 1000;
+    let trendLabel = "vs kemarin";
+
+    if (range === "5m") {
+      windowMs = 5 * 60 * 1000;
+      trendLabel = "vs 5 mnt lalu";
+    } else if (range === "1h") {
+      windowMs = 60 * 60 * 1000;
+      trendLabel = "vs 1 jam lalu";
+    } else if (range === "24h") {
+      windowMs = 24 * 60 * 60 * 1000;
+      trendLabel = "vs kemarin";
+    } else if (range === "7d") {
+      windowMs = 7 * 24 * 60 * 60 * 1000;
+      trendLabel = "vs minggu lalu";
+    } else if (range === "30d") {
+      windowMs = 30 * 24 * 60 * 60 * 1000;
+      trendLabel = "vs bulan lalu";
+    } else if (range === "1y") {
+      windowMs = 365 * 24 * 60 * 60 * 1000;
+      trendLabel = "vs tahun lalu";
+    } else if (range === "all") {
+      windowMs = Infinity;
+      trendLabel = "historis";
+    }
+
+    const currentWindowStart = windowMs === Infinity ? 0 : now - windowMs;
+    const prevWindowStart = windowMs === Infinity ? 0 : now - 2 * windowMs;
+    const prevWindowEnd = currentWindowStart;
+
+    let totalRequests = 0;
     let errorCount = 0;
     let totalDuration = 0;
+    let durationCount = 0;
     const reqsPerRouteObj: Record<string, number> = {};
     const statusBreakdown: Record<string, number> = {};
 
-    const now = Date.now();
+    let prevTotalRequests = 0;
+    let prevErrorCount = 0;
+    let prevDuration = 0;
+    let prevDurationCount = 0;
+
     const oneMinAgo = now - 60_000;
     const twoMinAgo = now - 120_000;
     let rpm = 0;
@@ -774,23 +868,59 @@ export class DatabaseCache {
 
     this.data.logs.forEach((log) => {
       const t = new Date(log.timestamp).getTime();
+
+      // Realtime RPM (1 menit terakhir vs 1 menit sebelumnya)
       if (t >= oneMinAgo && t <= now) rpm++;
       else if (t >= twoMinAgo && t < oneMinAgo) rpmPrev++;
 
-      if (log.statusCode >= 400) errorCount++;
-      totalDuration += log.durationMs || 0;
+      // Current Window filter
+      if (t >= currentWindowStart && t <= now) {
+        totalRequests++;
+        if (log.statusCode >= 400) errorCount++;
+        if (log.durationMs != null && !isNaN(log.durationMs)) {
+          totalDuration += log.durationMs;
+          durationCount++;
+        }
 
-      const routeId = log.routeId || "unknown";
-      reqsPerRouteObj[routeId] = (reqsPerRouteObj[routeId] || 0) + 1;
+        const routeId = log.path || log.routeId || "unknown";
+        reqsPerRouteObj[routeId] = (reqsPerRouteObj[routeId] || 0) + 1;
 
-      const code = String(log.statusCode);
-      statusBreakdown[code] = (statusBreakdown[code] || 0) + 1;
+        const code = String(log.statusCode);
+        statusBreakdown[code] = (statusBreakdown[code] || 0) + 1;
+      }
+      // Previous Window filter (untuk hitung tren riil vs periode sebelumnya)
+      else if (windowMs !== Infinity && t >= prevWindowStart && t < prevWindowEnd) {
+        prevTotalRequests++;
+        if (log.statusCode >= 400) prevErrorCount++;
+        if (log.durationMs != null && !isNaN(log.durationMs)) {
+          prevDuration += log.durationMs;
+          prevDurationCount++;
+        }
+      }
     });
 
     const avgResponseTime =
-      this.data.logs.length > 0
-        ? Math.round(totalDuration / this.data.logs.length)
+      durationCount > 0 ? Math.round(totalDuration / durationCount) : 0;
+    const prevAvgResponseTime =
+      prevDurationCount > 0 ? Math.round(prevDuration / prevDurationCount) : 0;
+
+    // Hitung perubahan tren yang riil (bukan fake +100% dari 0)
+    let requestsDeltaPct = 0;
+    if (prevTotalRequests > 0) {
+      requestsDeltaPct =
+        Math.round(
+          ((totalRequests - prevTotalRequests) / prevTotalRequests) * 100 * 10,
+        ) / 10;
+    } else {
+      // Jika di periode sebelumnya belum ada data, tampilkan 0 (stabil)
+      requestsDeltaPct = 0;
+    }
+
+    const latencyDeltaMs =
+      prevAvgResponseTime > 0 && avgResponseTime > 0
+        ? avgResponseTime - prevAvgResponseTime
         : 0;
+    const errorsDeltaCount = errorCount - prevErrorCount;
 
     const requestsPerRoute = Object.entries(reqsPerRouteObj)
       .map(([id, count]) => {
@@ -801,25 +931,31 @@ export class DatabaseCache {
       .slice(0, 10);
 
     return {
+      range,
+      trendLabel,
       summary: {
         activeClients: this.data.clients.filter((c) => c.isActive).length,
         suspendedClients: this.data.clients.filter((c) => !c.isActive).length,
         totalClients: this.data.clients.length,
-        totalRequests: this.data.logs.length,
+        totalRequests,
         activeRoutes: this.data.routes.filter((r) => r.isActive).length,
         totalRoutes: this.data.routes.length,
         totalPackages: this.data.packages.length,
         successRate:
-          this.data.logs.length > 0
+          totalRequests > 0
             ? Math.round(
-                ((this.data.logs.length - errorCount) / this.data.logs.length) *
-                  100,
+                ((totalRequests - errorCount) / totalRequests) * 100,
               )
             : 100,
         avgResponseTime,
         errorCount,
         rpm,
         rpmDelta: rpm - rpmPrev,
+        trends: {
+          requests: requestsDeltaPct,
+          latency: latencyDeltaMs,
+          errors: errorsDeltaCount,
+        },
       },
       topClients: this.data.clients
         .sort((a, b) => b.usageThisMonth - a.usageThisMonth)

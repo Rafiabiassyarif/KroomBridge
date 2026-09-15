@@ -11,6 +11,8 @@ import {
   resolveRouteTarget,
   rewriteModelForUpstream,
   normalizeModelName,
+  getModelVariants,
+  isModelDisabled,
 } from "./modelRegistry.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "kroombox_super_secret_key_123!";
@@ -169,13 +171,23 @@ export const gatewayMiddleware = (
   // ── 5. Cek Kuota Bulanan ──
   const activeQuota =
     client.customQuota != null ? client.customQuota : pkg.monthlyQuota;
-  if (client.usageThisMonth >= activeQuota) {
+  const isRequestQuota = pkg.quotaType === "request";
+  const isCreditQuota = pkg.quotaType === "credit";
+  const requiredQuota = isRequestQuota ? Math.max(1, pkg.costPerRequest || 1) : 1;
+
+  if (client.usageThisMonth + (isRequestQuota ? requiredQuota - 1 : 0) >= activeQuota) {
     if (!pkg.allowOverage) {
       return res.status(429).json({
-        error: "Kuota bulanan Anda sudah habis.",
-        hint: "Silakan hubungi admin untuk upgrade paket atau topup kuota.",
+        error: isCreditQuota
+          ? "Saldo kredit AI bulanan Anda sudah habis."
+          : isRequestQuota
+          ? "Kuota request/hit bulanan Anda sudah habis."
+          : "Kuota token bulanan Anda sudah habis.",
+        hint: "Silakan hubungi admin untuk upgrade paket atau topup saldo.",
         usage: client.usageThisMonth,
         quota: activeQuota,
+        quotaType: pkg.quotaType || "credit",
+        remaining: Math.max(0, activeQuota - client.usageThisMonth),
       });
     }
     // Overage diizinkan, lanjut dengan info peringatan
@@ -321,9 +333,16 @@ gatewayRouter.use(async (req: Request, res: Response) => {
   // ── Cek Model yang Diizinkan Paket ──
   if (req.body?.model && pkg.allowedModels && pkg.allowedModels.length > 0 && !pkg.allowedModels.includes("*")) {
     const requestedModel = req.body.model;
-    const isModelAllowed = pkg.allowedModels.some((m: string) =>
-      requestedModel === m || requestedModel.endsWith("/" + m) || m.endsWith("/" + requestedModel)
-    );
+    const reqVariants = getModelVariants(requestedModel).map((v) => v.toLowerCase());
+    const isModelAllowed = pkg.allowedModels.some((m: string) => {
+      const allowedVariants = getModelVariants(m).map((v) => v.toLowerCase());
+      return reqVariants.some(
+        (rv) =>
+          allowedVariants.includes(rv) ||
+          rv.endsWith("/" + m.toLowerCase()) ||
+          m.toLowerCase().endsWith("/" + rv),
+      );
+    });
     if (!isModelAllowed) {
       logRequest(403, "Model tidak diizinkan oleh paket");
       return res.status(403).json({
@@ -336,11 +355,12 @@ gatewayRouter.use(async (req: Request, res: Response) => {
 
   // ── Cek Model yang Dinonaktifkan ──
   if (req.body?.model) {
-    const meta = db.getMeta();
-    const disabledModels = meta.disabledModels || [];
-    if (disabledModels.includes(req.body.model)) {
+    if (isModelDisabled(req.body.model)) {
+      logRequest(403, `Model '${req.body.model}' sedang dinonaktifkan`);
       return res.status(403).json({
-        error: "Model ini sedang dinonaktifkan oleh Administrator.",
+        error: `Model '${req.body.model}' sedang dinonaktifkan oleh Administrator.`,
+        model: req.body.model,
+        disabled: true,
       });
     }
   }
@@ -353,7 +373,9 @@ gatewayRouter.use(async (req: Request, res: Response) => {
   const modelStringToParse = typeof requestModel === "string" ? requestModel : matchedRoute?.description;
 
   if (modelStringToParse) {
-    const desc = modelStringToParse.toLowerCase();
+    // Periksa multiplier dengan menyertakan nama alias maupun canonical ID
+    const variants = typeof requestModel === "string" ? getModelVariants(requestModel) : [modelStringToParse];
+    const desc = variants.join(" ").toLowerCase();
 
     // Evaluasi open-source models terlebih dahulu agar model 'distilled' 
     // (misal: qwen3.6-35b-claude-opus-distilled) tidak tertukar harganya menjadi mahal.
@@ -525,8 +547,9 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       processedBody.model = rewriteModelForUpstream(processedBody.model, target);
     }
 
-    // ── Dynamic Token Limiting (Loss Prevention) ──
+    // ── Dynamic Token Limiting (Loss Prevention - Hanya untuk Paket Berbasis Token) ──
     if (
+      pkg.quotaType === "token" &&
       typeof processedBody === "object" &&
       processedBody !== null
     ) {
@@ -840,27 +863,44 @@ gatewayRouter.use(async (req: Request, res: Response) => {
       }
 
       if (
-        pkg.quotaType === "token" &&
         upstreamResponse.status >= 200 &&
         upstreamResponse.status < 300
       ) {
-        let inputTokens = 0;
-        let outputTokens = 0;
-        let baseTokens = 0;
-
-        if (streamUsage?.total_tokens) {
-          baseTokens = streamUsage.total_tokens;
-          inputTokens = streamUsage.prompt_tokens || 0;
-          outputTokens = streamUsage.completion_tokens || 0;
+        if (pkg.quotaType === "request") {
+          const hitCost = Math.max(1, pkg.costPerRequest || 1);
+          db.incrementUsage(clientId, hitCost);
+        } else if (pkg.quotaType === "credit") {
+          let baseTokens = 0;
+          if (streamUsage?.total_tokens) {
+            baseTokens = streamUsage.total_tokens;
+          } else {
+            const inputTokens = estimateTokens(processedBody);
+            const finalOutput = (aggregatedContent || aggregatedReasoning) ? (aggregatedContent + aggregatedReasoning) : fullText;
+            const outputTokens = estimateTokens(finalOutput);
+            baseTokens = Math.max(1, inputTokens + outputTokens);
+          }
+          const costPer1K = pkg.costPer1KTokens || 20;
+          const costInRupiah = Math.max(1, Math.ceil((baseTokens / 1000) * costPer1K * modelMultiplier));
+          db.incrementUsage(clientId, costInRupiah);
         } else {
-          // Fallback to estimation since regex is vulnerable to user prompts
-          inputTokens = estimateTokens(processedBody);
-          const finalOutput = (aggregatedContent || aggregatedReasoning) ? (aggregatedContent + aggregatedReasoning) : fullText;
-          outputTokens = estimateTokens(finalOutput);
-          baseTokens = Math.max(1, inputTokens + outputTokens);
+          let inputTokens = 0;
+          let outputTokens = 0;
+          let baseTokens = 0;
+
+          if (streamUsage?.total_tokens) {
+            baseTokens = streamUsage.total_tokens;
+            inputTokens = streamUsage.prompt_tokens || 0;
+            outputTokens = streamUsage.completion_tokens || 0;
+          } else {
+            // Fallback to estimation since regex is vulnerable to user prompts
+            inputTokens = estimateTokens(processedBody);
+            const finalOutput = (aggregatedContent || aggregatedReasoning) ? (aggregatedContent + aggregatedReasoning) : fullText;
+            outputTokens = estimateTokens(finalOutput);
+            baseTokens = Math.max(1, inputTokens + outputTokens);
+          }
+          const tokens = Math.ceil(baseTokens * modelMultiplier);
+          db.incrementUsage(clientId, tokens);
         }
-        const tokens = Math.ceil(baseTokens * modelMultiplier);
-        db.incrementUsage(clientId, tokens);
       }
       return;
     }
@@ -875,25 +915,57 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         upstreamResponse.status >= 200 &&
         upstreamResponse.status < 300
       ) {
-        let inputTokens = 0;
-        let outputTokens = 0;
-        let baseTokens = 0;
-        if (jsonResponse.usage?.total_tokens) {
-          baseTokens = jsonResponse.usage.total_tokens;
-          inputTokens = jsonResponse.usage.prompt_tokens || 0;
-          outputTokens = jsonResponse.usage.completion_tokens || 0;
-        } else {
-          inputTokens = estimateTokens(processedBody);
-          outputTokens = estimateTokens(jsonResponse);
-          baseTokens = Math.max(1, inputTokens + outputTokens);
-        }
-        const tokens = Math.ceil(baseTokens * modelMultiplier);
+        if (pkg.quotaType === "request") {
+          const hitCost = Math.max(1, pkg.costPerRequest || 1);
+          db.incrementUsage(clientId, hitCost);
+          res.setHeader("X-Quota-Type", "request");
+          res.setHeader("X-Cost-Charged", String(hitCost));
+        } else if (pkg.quotaType === "credit") {
+          let inputTokens = 0;
+          let outputTokens = 0;
+          let baseTokens = 0;
+          if (jsonResponse.usage?.total_tokens) {
+            baseTokens = jsonResponse.usage.total_tokens;
+            inputTokens = jsonResponse.usage.prompt_tokens || 0;
+            outputTokens = jsonResponse.usage.completion_tokens || 0;
+          } else {
+            inputTokens = estimateTokens(processedBody);
+            outputTokens = estimateTokens(jsonResponse);
+            baseTokens = Math.max(1, inputTokens + outputTokens);
+          }
+          const costPer1K = pkg.costPer1KTokens || 20;
+          const costInRupiah = Math.max(1, Math.ceil((baseTokens / 1000) * costPer1K * modelMultiplier));
 
-        db.incrementUsage(clientId, tokens);
-        res.setHeader("X-Token-Multiplier", String(modelMultiplier));
-        res.setHeader("X-Tokens-Charged", String(tokens));
-        res.setHeader("X-Tokens-In", String(inputTokens));
-        res.setHeader("X-Tokens-Out", String(outputTokens));
+          db.incrementUsage(clientId, costInRupiah);
+          res.setHeader("X-Quota-Type", "credit");
+          res.setHeader("X-Cost-Charged-Rp", `Rp ${costInRupiah.toLocaleString("id-ID")}`);
+          res.setHeader("X-Token-Multiplier", String(modelMultiplier));
+          res.setHeader("X-Tokens-Total", String(baseTokens));
+          res.setHeader("X-Tokens-In", String(inputTokens));
+          res.setHeader("X-Tokens-Out", String(outputTokens));
+        } else {
+          let inputTokens = 0;
+          let outputTokens = 0;
+          let baseTokens = 0;
+          if (jsonResponse.usage?.total_tokens) {
+            baseTokens = jsonResponse.usage.total_tokens;
+            inputTokens = jsonResponse.usage.prompt_tokens || 0;
+            outputTokens = jsonResponse.usage.completion_tokens || 0;
+          } else {
+            inputTokens = estimateTokens(processedBody);
+            outputTokens = estimateTokens(jsonResponse);
+            baseTokens = Math.max(1, inputTokens + outputTokens);
+          }
+          const tokens = Math.ceil(baseTokens * modelMultiplier);
+
+          db.incrementUsage(clientId, tokens);
+          res.setHeader("X-Quota-Type", "token");
+          res.setHeader("X-Token-Multiplier", String(modelMultiplier));
+          res.setHeader("X-Tokens-Charged", String(tokens));
+          res.setHeader("X-Cost-Charged", String(tokens));
+          res.setHeader("X-Tokens-In", String(inputTokens));
+          res.setHeader("X-Tokens-Out", String(outputTokens));
+        }
       }
 
       // ── Transform Response Body ──
@@ -1010,16 +1082,35 @@ gatewayRouter.use(async (req: Request, res: Response) => {
         upstreamResponse.status >= 200 &&
         upstreamResponse.status < 300
       ) {
-        const inputTokens = estimateTokens(processedBody);
-        const outputTokens = estimateTokens(textResponse);
-        const baseTokens = Math.max(1, inputTokens + outputTokens);
-        const tokens = Math.ceil(baseTokens * modelMultiplier);
+        if (pkg.quotaType === "request") {
+          const hitCost = Math.max(1, pkg.costPerRequest || 1);
+          db.incrementUsage(clientId, hitCost);
+          res.setHeader("X-Quota-Type", "request");
+          res.setHeader("X-Cost-Charged", String(hitCost));
+        } else if (pkg.quotaType === "credit") {
+          const inputTokens = estimateTokens(processedBody);
+          const outputTokens = estimateTokens(textResponse);
+          const baseTokens = Math.max(1, inputTokens + outputTokens);
+          const costPer1K = pkg.costPer1KTokens || 20;
+          const costInRupiah = Math.max(1, Math.ceil((baseTokens / 1000) * costPer1K * modelMultiplier));
 
-        db.incrementUsage(clientId, tokens);
-        res.setHeader("X-Token-Multiplier", String(modelMultiplier));
-        res.setHeader("X-Tokens-Charged", String(tokens));
-        res.setHeader("X-Tokens-In", String(inputTokens));
-        res.setHeader("X-Tokens-Out", String(outputTokens));
+          db.incrementUsage(clientId, costInRupiah);
+          res.setHeader("X-Quota-Type", "credit");
+          res.setHeader("X-Cost-Charged-Rp", `Rp ${costInRupiah.toLocaleString("id-ID")}`);
+        } else {
+          const inputTokens = estimateTokens(processedBody);
+          const outputTokens = estimateTokens(textResponse);
+          const baseTokens = Math.max(1, inputTokens + outputTokens);
+          const tokens = Math.ceil(baseTokens * modelMultiplier);
+
+          db.incrementUsage(clientId, tokens);
+          res.setHeader("X-Quota-Type", "token");
+          res.setHeader("X-Token-Multiplier", String(modelMultiplier));
+          res.setHeader("X-Tokens-Charged", String(tokens));
+          res.setHeader("X-Cost-Charged", String(tokens));
+          res.setHeader("X-Tokens-In", String(inputTokens));
+          res.setHeader("X-Tokens-Out", String(outputTokens));
+        }
       }
 
       return res

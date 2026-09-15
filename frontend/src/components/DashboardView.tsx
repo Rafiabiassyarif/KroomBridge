@@ -61,6 +61,8 @@ interface LogEntry {
 }
 
 interface DashboardStats {
+  range?: string;
+  trendLabel?: string;
   summary: {
     activeClients: number;
     suspendedClients: number;
@@ -74,6 +76,11 @@ interface DashboardStats {
     errorCount: number;
     rpm?: number;
     rpmDelta?: number;
+    trends?: {
+      requests: number;
+      latency: number;
+      errors: number;
+    };
   };
   topClients: Array<{
     id: string;
@@ -316,18 +323,20 @@ function computeEndpointHealth(
 function getUpstreamMeta(path: string) {
   const p = path.toLowerCase();
   if (p.includes("chat") || p.includes("llm") || p.includes("gpt") || p.includes("completions"))
-    return { icon: Bot, label: "Chat API", glow: "shadow-sky-500/30" };
+    return { icon: Bot, label: "Chat AI", glow: "shadow-sky-500/30" };
   if (p.includes("model"))
-    return { icon: Server, label: "Models API", glow: "shadow-emerald-500/30" };
+    return { icon: Server, label: "Models AI", glow: "shadow-emerald-500/30" };
   if (p.includes("embed"))
-    return { icon: Layers, label: "Embed API", glow: "shadow-blue-500/30" };
+    return { icon: Layers, label: "Embeddings", glow: "shadow-blue-500/30" };
   if (p.includes("image") || p.includes("img") || p.includes("vision"))
-    return { icon: ImageIcon, label: "Image API", glow: "shadow-amber-500/30" };
+    return { icon: ImageIcon, label: "Vision AI", glow: "shadow-amber-500/30" };
   if (p.includes("db") || p.includes("data"))
     return { icon: Database, label: "Database", glow: "shadow-blue-500/30" };
   if (p.includes("auth") || p.includes("token"))
-    return { icon: Lock, label: "Auth", glow: "shadow-cyan-500/30" };
-  return { icon: Globe, label: path, glow: "shadow-cyan-500/30" };
+    return { icon: Lock, label: "Auth Token", glow: "shadow-cyan-500/30" };
+  if (p.includes("gateway"))
+    return { icon: Globe, label: "Gateway API", glow: "shadow-purple-500/30" };
+  return { icon: Globe, label: path.replace(/^\/v1\//, "").replace(/^\//, "") || "API Endpoint", glow: "shadow-cyan-500/30" };
 }
 
 function buildTimeSeries(
@@ -903,7 +912,7 @@ export default function DashboardView({
     setIsRefreshing(true);
     try {
       const [resStats, resGpu] = await Promise.all([
-        adminFetch("/api/admin/dashboard-stats"),
+        adminFetch(`/api/admin/dashboard-stats?range=${timeRange}`),
         adminFetch("/api/admin/gpu"),
       ]);
 
@@ -1132,12 +1141,16 @@ export default function DashboardView({
   };
 
   useEffect(() => {
+    fetchStats();
     fetchTimeseries();
   }, [timeRange, serviceFilter]);
 
   useEffect(() => {
     if (!autoRefresh) return;
-    const id = window.setInterval(fetchTimeseries, refreshInterval * 1000);
+    const id = window.setInterval(() => {
+      fetchStats();
+      fetchTimeseries();
+    }, refreshInterval * 1000);
     return () => window.clearInterval(id);
   }, [timeRange, serviceFilter, autoRefresh, refreshInterval]);
 
@@ -1229,28 +1242,21 @@ export default function DashboardView({
       : 0;
 
   const trends = useMemo(() => {
-    const calcPct = (curr: number, prev: number) => {
-      if (prev === 0) return curr > 0 ? 100 : 0;
-      return Math.round(((curr - prev) / prev) * 100 * 10) / 10;
-    };
+    if (stats.summary.trends) {
+      return {
+        requests: stats.summary.trends.requests ?? 0,
+        latency: stats.summary.trends.latency ?? 0,
+        errorsAll: stats.summary.trends.errors ?? 0,
+        clients: stats.summary.activeClients - (prevStats.summary?.activeClients || stats.summary.activeClients),
+      };
+    }
     return {
-      requests: calcPct(
-        stats.summary.totalRequests,
-        prevStats.summary.totalRequests,
-      ),
-      latency:
-        stats.summary.avgResponseTime - prevStats.summary.avgResponseTime,
-      errorsAll:
-        prevErrorAllCount === 0
-          ? 0
-          : +(
-              ((errorAllCount - prevErrorAllCount) /
-                Math.max(prevErrorAllCount, 1)) *
-              100
-            ).toFixed(2),
-      clients: stats.summary.activeClients - prevStats.summary.activeClients,
+      requests: 0,
+      latency: 0,
+      errorsAll: 0,
+      clients: 0,
     };
-  }, [stats.summary, prevStats.summary, errorAllCount, prevErrorAllCount]);
+  }, [stats.summary, prevStats.summary]);
 
   // ── Realtime Request-Per-Minute (RPM) ──
   // Hitung dari log 60 detik terakhir vs 60–120 detik sebelumnya untuk trend.
@@ -1614,7 +1620,7 @@ export default function DashboardView({
 
               <div className="hidden xl:flex flex-col items-center justify-center">
                 <div className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold mb-1.5 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/30 backdrop-blur-md flex items-center gap-1.5 shadow-lg shadow-emerald-500/10">
-                  <Lock className="w-3 h-3" /> JWT Auth
+                  <Key className="w-3 h-3" /> API Key Auth
                 </div>
                 <ArrowRight className="w-5 h-5 text-zinc-300 dark:text-zinc-600" />
               </div>
@@ -1662,7 +1668,7 @@ export default function DashboardView({
                 <ArrowRight className="w-5 h-5 text-zinc-300 dark:text-zinc-600" />
               </div>
 
-              <div className="flex flex-col items-stretch flex-1 min-w-0 gap-2.5 w-full xl:w-auto">
+              <div className="flex flex-col items-stretch flex-1 min-w-[210px] gap-2.5 w-full xl:w-auto">
                 {(stats.requestsPerRoute.length > 0
                   ? stats.requestsPerRoute.slice(0, 3)
                   : [
@@ -1704,13 +1710,13 @@ export default function DashboardView({
                           strokeWidth={2.2}
                         />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-zinc-700 dark:text-zinc-100 truncate">
+                      <div className="flex-1 min-w-0 pr-1">
+                        <p className="text-xs font-bold text-zinc-700 dark:text-zinc-100 whitespace-nowrap">
                           {meta.label}
                         </p>
                       </div>
                       <span
-                        className={`text-[10px] font-bold px-2 py-1 rounded-md border backdrop-blur-md ${health.cls}`}
+                        className={`text-[10px] font-bold px-2 py-1 rounded-md border backdrop-blur-md shrink-0 ${health.cls}`}
                       >
                         {health.label}
                       </span>
@@ -1729,7 +1735,7 @@ export default function DashboardView({
         >
           <StatCard
             label="Total Responses"
-            value={totalResponses}
+            value={stats.summary.totalRequests}
             formatter={formatNumber}
             icon={Activity}
             iconGradient="from-sky-500 to-blue-600"
@@ -1737,6 +1743,7 @@ export default function DashboardView({
             trendValue={trends.requests}
             trendType="percentage"
             higherIsBetter
+            trendLabel={stats.trendLabel}
           />
           <StatCard
             label="Rata-rata Latensi"
@@ -1748,17 +1755,19 @@ export default function DashboardView({
             trendValue={trends.latency}
             trendType="ms"
             higherIsBetter={false}
+            trendLabel={stats.trendLabel}
           />
           <StatCard
             label="Total Eror (4XX/5XX)"
-            value={errorAllCount}
+            value={stats.summary.errorCount}
             formatter={formatNumber}
             icon={AlertTriangle}
             iconGradient="from-rose-500 to-pink-600"
             iconShadow="shadow-rose-500/40"
             trendValue={trends.errorsAll}
-            trendType="percentage"
+            trendType="absolute"
             higherIsBetter={false}
+            trendLabel={stats.trendLabel}
           />
           <StatCard
             label="Trafik / Menit"
@@ -1769,6 +1778,7 @@ export default function DashboardView({
             trendValue={rpmStats.delta}
             trendType="absolute"
             higherIsBetter
+            trendLabel="vs mnt lalu"
           />
         </motion.div>
 
@@ -2461,6 +2471,7 @@ interface StatCardProps {
   trendValue: number;
   trendType: "percentage" | "ms" | "absolute";
   higherIsBetter: boolean;
+  trendLabel?: string;
 }
 
 function StatCard({
@@ -2473,6 +2484,7 @@ function StatCard({
   trendValue,
   trendType,
   higherIsBetter,
+  trendLabel,
 }: StatCardProps) {
   const isUp = trendValue > 0;
   const isNeutral = trendValue === 0 || !isFinite(trendValue);
@@ -2547,7 +2559,7 @@ function StatCard({
             </span>
           )}
           <span className="text-[11px] text-zinc-500 font-medium group-hover:text-zinc-400 transition-colors">
-            vs kemarin
+            {trendLabel || "vs kemarin"}
           </span>
         </div>
       </div>
