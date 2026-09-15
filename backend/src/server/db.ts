@@ -4,16 +4,39 @@ import bcrypt from "bcryptjs";
 export let pool: mysql.Pool;
 
 export const initMySQL = async () => {
+  let host = process.env.DB_HOST || "127.0.0.1";
+  let user = process.env.DB_USER || "root";
+  let password = process.env.DB_PASSWORD || "";
+  let database = process.env.DB_NAME || "kroombridge";
+  let port = process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306;
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const parsedUrl = new URL(process.env.DATABASE_URL);
+      if (parsedUrl.hostname) host = parsedUrl.hostname;
+      if (parsedUrl.port) port = parseInt(parsedUrl.port);
+      if (parsedUrl.username) user = decodeURIComponent(parsedUrl.username);
+      if (parsedUrl.password) password = decodeURIComponent(parsedUrl.password);
+      if (parsedUrl.pathname) {
+        const dbFromPath = parsedUrl.pathname.replace(/^\//, "");
+        if (dbFromPath) database = dbFromPath;
+      }
+    } catch {
+      // jika bukan format URL standar, gunakan fallback variabel di atas
+    }
+  }
+
   pool = mysql.createPool({
-    host: "127.0.0.1",
-    user: "root",
-    password: "",
-    database: "kroombox_db",
+    host,
+    user,
+    password,
+    database,
+    port,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
   });
-  console.log("[MySQL] Berhasil terhubung ke database kroombox_db");
+  console.log(`[MySQL] Berhasil terhubung ke database ${database} di ${host}:${port}`);
 
   // ─── Schema migration ─────────────────────────────────────
   // Auto-add kolom baru untuk klien lama yang skema-nya belum punya.
@@ -211,6 +234,119 @@ export const initMySQL = async () => {
       } catch {
       }
     }
+  }
+
+  // ─── Default Package Seeder ──────────────────────────────────
+  try {
+    const [pkgCount]: any = await pool.query("SELECT COUNT(*) as cnt FROM packages");
+    if (pkgCount && pkgCount[0]?.cnt === 0) {
+      console.log("[MySQL] Tabel packages kosong, melakukan seeding paket default...");
+      const defaultInitialPackages = [
+        {
+          id: "pkg_free",
+          name: "Free",
+          description: "Akses uji coba gratis dengan saldo awal Rp 5.000 untuk semua model AI.",
+          monthlyQuota: 5000,
+          maxRequestsPerMinute: 30,
+          quotaType: "credit",
+          allowOverage: 0,
+          overageRatePer1K: 0,
+          allowedEndpoints: JSON.stringify(["*"]),
+          allowedModels: JSON.stringify(["*"]),
+          price: 0,
+          costPerRequest: 1,
+          costPer1KTokens: 20,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "pkg_starter",
+          name: "Starter",
+          description: "Paket Starter - Saldo AI Rp 25.000 untuk kebutuhan awal dan testing",
+          monthlyQuota: 35000,
+          maxRequestsPerMinute: 60,
+          quotaType: "credit",
+          allowOverage: 0,
+          overageRatePer1K: 0,
+          allowedEndpoints: JSON.stringify(["*"]),
+          allowedModels: JSON.stringify(["*"]),
+          price: 35000,
+          costPerRequest: 1,
+          costPer1KTokens: 20,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "pkg_basic",
+          name: "Basic",
+          description: "Paket Basic - Saldo AI Rp 50.000 untuk penggunaan personal & project kecil",
+          monthlyQuota: 65000,
+          maxRequestsPerMinute: 100,
+          quotaType: "credit",
+          allowOverage: 0,
+          overageRatePer1K: 0,
+          allowedEndpoints: JSON.stringify(["*"]),
+          allowedModels: JSON.stringify(["*"]),
+          price: 65000,
+          costPerRequest: 1,
+          costPer1KTokens: 20,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "pkg_pro",
+          name: "Pro",
+          description: "Paket Pro - Saldo AI Rp 100.000 untuk developer & freelancer aktif",
+          monthlyQuota: 125000,
+          maxRequestsPerMinute: 150,
+          quotaType: "credit",
+          allowOverage: 0,
+          overageRatePer1K: 0,
+          allowedEndpoints: JSON.stringify(["*"]),
+          allowedModels: JSON.stringify(["*"]),
+          price: 125000,
+          costPerRequest: 1,
+          costPer1KTokens: 20,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "pkg_business",
+          name: "Business",
+          description: "Paket Business - Saldo AI Rp 250.000 untuk tim dan aplikasi produksi",
+          monthlyQuota: 300000,
+          maxRequestsPerMinute: 300,
+          quotaType: "credit",
+          allowOverage: 0,
+          overageRatePer1K: 0,
+          allowedEndpoints: JSON.stringify(["*"]),
+          allowedModels: JSON.stringify(["*"]),
+          price: 300000,
+          costPerRequest: 1,
+          costPer1KTokens: 20,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "pkg_enterprise",
+          name: "Enterprise",
+          description: "Paket Enterprise - Saldo AI Rp 500.000 untuk volume tinggi dan integrasi skala besar",
+          monthlyQuota: 600000,
+          maxRequestsPerMinute: 500,
+          quotaType: "credit",
+          allowOverage: 0,
+          overageRatePer1K: 0,
+          allowedEndpoints: JSON.stringify(["*"]),
+          allowedModels: JSON.stringify(["*"]),
+          price: 600000,
+          costPerRequest: 1,
+          costPer1KTokens: 20,
+          createdAt: new Date().toISOString(),
+        },
+      ];
+
+      for (const p of defaultInitialPackages) {
+        await pool.query("INSERT IGNORE INTO packages SET ?", [p]);
+      }
+      console.log("[MySQL] Seeding paket default selesai.");
+    }
+  } catch (err) {
+    console.error("[MySQL] Gagal seeding paket default:", err);
   }
 
   await reloadFromMySQL();
