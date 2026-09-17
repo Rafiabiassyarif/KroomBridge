@@ -108,30 +108,56 @@ integrationRouter.post(
       pkg = db.updatePackage(packageId, packageDetails);
     }
 
-    // Cek apakah user sudah ada (berdasarkan externalUserId)
+    // Cek apakah user sudah ada (berdasarkan externalUserId, email, atau nama)
+    let existingClient = null;
     if (externalUserId) {
-      const existingClient = db
+      existingClient = db
         .getClients()
-        .find((c) => c.tags?.includes(`external:${externalUserId}`));
-      if (existingClient) {
-        // Update paket jika sudah ada
-        const updated = db.updateClient(existingClient.id, {
-          packageId,
-          isActive: true,
-          status: "active",
-        });
-        return res.status(200).json({
-          message:
-            "Paket klien berhasil diperbarui (klien sudah terdaftar sebelumnya).",
-          action: "updated",
-          data: updated,
-        });
-      }
+        .find((c) => c.id === externalUserId || c.tags?.includes(`external:${externalUserId}`));
+    }
+    if (!existingClient && userEmail) {
+      existingClient = db
+        .getClients()
+        .find((c) => c.email && c.email.toLowerCase() === userEmail.toLowerCase());
+    }
+    if (!existingClient && userName) {
+      existingClient = db
+        .getClients()
+        .find((c) => c.name && c.name.toLowerCase() === userName.toLowerCase());
+    }
+
+    if (existingClient) {
+      // Update paket jika sudah ada
+      const mergedTags = [
+        ...new Set([
+          ...(existingClient.tags || []),
+          externalUserId ? `external:${externalUserId}` : null,
+        ].filter(Boolean) as string[]),
+      ];
+
+      const updated = db.updateClient(existingClient.id, {
+        packageId,
+        isActive: true,
+        status: "active",
+        tags: mergedTags,
+      });
+
+      broadcast({
+        type: "client:change",
+        data: { action: "updated", client: updated },
+      });
+
+      return res.status(200).json({
+        message:
+          "Paket klien berhasil diperbarui (klien sudah terdaftar sebelumnya).",
+        action: "updated",
+        data: updated,
+      });
     }
 
     // Buat client baru
     const newClient = {
-      id: `client_${uuidv4().replace(/-/g, "").slice(0, 12)}`,
+      id: externalUserId || `client_${uuidv4().replace(/-/g, "").slice(0, 12)}`,
       name: userName,
       email: userEmail || undefined,
       packageId,
@@ -147,6 +173,10 @@ integrationRouter.post(
     };
 
     db.createClient(newClient);
+    broadcast({
+      type: "client:change",
+      data: { action: "created", client: newClient },
+    });
 
     res.status(201).json({
       message: `User '${userName}' berhasil didaftarkan sebagai Klien API dengan paket ${pkg.name}.`,
@@ -259,9 +289,9 @@ integrationRouter.post(
     if (clientId) {
       client = db.getClient(clientId);
     } else if (externalUserId) {
-      client = db
-        .getClients()
-        .find((c) => c.tags?.includes(`external:${externalUserId}`));
+      client =
+        db.getClient(externalUserId) ||
+        db.getClients().find((c) => c.tags?.includes(`external:${externalUserId}`));
     }
 
     if (!client) {
@@ -270,9 +300,14 @@ integrationRouter.post(
 
     const oldPackage = db.getPackage(client.packageId);
     const updated = db.updateClient(client.id, {
-      packageId: newPackageId,
+      packageId: pkg.id,
       isActive: true,
       status: "active",
+    });
+
+    broadcast({
+      type: "client:change",
+      data: { action: "updated", client: updated },
     });
 
     res.json({

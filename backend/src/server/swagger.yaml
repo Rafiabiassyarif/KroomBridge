@@ -537,3 +537,13 @@ paths:
       responses:
         '200':
           description: Daftar Paket
+
+  /api/integration/webhook/rotate-key:
+    post:
+      tags: [Integration]
+      summary: Rotasi Secret Key Klien dari Panel
+      responses:
+        '200':
+          description: Secret Key berhasil dirotasi
+        '404':
+          description: Klien tidak ditemukan
