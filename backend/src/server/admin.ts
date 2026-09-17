@@ -558,6 +558,7 @@ adminRouter.post("/clients/:id/rotate", (req: Request, res: Response) => {
   const client = db.getClient(req.params.id);
   if (!client) return res.status(404).json({ error: "Klien tidak ditemukan" });
 
+  const oldSecretKey = client.secretKey;
   const newSecretKey = `sk_${uuidv4().replace(/-/g, "")}`;
   // Naikkan keyVersion untuk meng-invalidate semua access token lama.
   // Klien harus call POST /api/auth/token lagi pakai secret key baru.
@@ -565,6 +566,26 @@ adminRouter.post("/clients/:id/rotate", (req: Request, res: Response) => {
   const updated = db.updateClient(client.id, {
     secretKey: newSecretKey,
     keyVersion: newKeyVersion,
+  });
+
+  const externalUserId =
+    client.tags?.find((t) => t.startsWith("external:"))?.replace("external:", "") ||
+    client.id;
+
+  broadcast({
+    type: "client:change",
+    data: { action: "rotated", client: updated },
+  });
+
+  notifyPanelWebhook("client:key_rotated", {
+    clientId: client.id,
+    externalUserId,
+    username: client.name,
+    email: client.email,
+    oldSecretKey,
+    newSecretKey,
+    keyVersion: newKeyVersion,
+    rotatedAt: new Date().toISOString(),
   });
 
   res.json({
@@ -635,14 +656,14 @@ adminRouter.get("/packages/:id", (req: Request, res: Response) => {
   });
 });
 // -----------------------------------------------------------------------------
-// HELPER: Sync Packages ke Panel Webhook
+// HELPER: Sync Events ke Panel Webhook
 // -----------------------------------------------------------------------------
-async function notifyPanelWebhook(action: "created" | "updated" | "deleted", payload: any) {
+export async function notifyPanelWebhook(event: string, payload: any) {
   const webhookUrl = process.env.PANEL_WEBHOOK_URL;
   if (!webhookUrl) return;
 
   try {
-    await fetch(webhookUrl, {
+    const res = await fetch(webhookUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -650,13 +671,13 @@ async function notifyPanelWebhook(action: "created" | "updated" | "deleted", pay
         "webhook_secret": process.env.WEBHOOK_SECRET || ""
       },
       body: JSON.stringify({
-        event: `package:${action}`,
+        event,
         data: payload
       })
     });
-    console.log(`[Webhook] Berhasil mengirim webhook package:${action} ke Panel`);
+    console.log(`[Webhook] Mengirim webhook '${event}' ke Panel. Status: ${res.status}`);
   } catch (err: any) {
-    console.error(`[Webhook] Gagal mengirim webhook package:${action} ke Panel:`, err.message);
+    console.error(`[Webhook] Gagal mengirim webhook '${event}' ke Panel:`, err.message);
   }
 }
 
@@ -712,7 +733,7 @@ adminRouter.post("/packages", (req: Request, res: Response) => {
     type: "package:change",
     data: { action: "created", package: newPackage },
   });
-  notifyPanelWebhook("created", newPackage);
+  notifyPanelWebhook("package:created", newPackage);
   res.status(201).json(newPackage);
 });
 
@@ -744,7 +765,7 @@ adminRouter.patch("/packages/:id", (req: Request, res: Response) => {
     type: "package:change",
     data: { action: "updated", package: updated },
   });
-  notifyPanelWebhook("updated", updated);
+  notifyPanelWebhook("package:updated", updated);
   res.json(updated);
 });
 
@@ -769,7 +790,7 @@ adminRouter.delete("/packages/:id", async (req: Request, res: Response) => {
       type: "package:change",
       data: { action: "deleted", id: pkgId },
     });
-    notifyPanelWebhook("deleted", { id: pkgId });
+    notifyPanelWebhook("package:deleted", { id: pkgId });
     res.json({ success: true, message: "Paket berhasil dihapus" });
   } catch (err: any) {
     console.error("[Delete Package Error]", err);

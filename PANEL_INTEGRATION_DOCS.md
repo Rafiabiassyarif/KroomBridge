@@ -2,10 +2,12 @@
 
 Dokumen ini berisi spesifikasi endpoint yang diperlukan untuk menghubungkan KroomBridge dengan sistem Kroombox Panel.
 
+**Base URL KroomBridge:** `https://kroombridge.kii.lat`
+
 ---
 
 ## 1. Webhook dari Panel ke KroomBridge
-Kroombox Panel harus melakukan HTTP POST/GET ke KroomBridge saat ada perubahan data di sisi Panel (pembelian, upgrade, cancel).
+Kroombox Panel harus melakukan HTTP POST/GET ke KroomBridge (`https://kroombridge.kii.lat`) saat ada perubahan data di sisi Panel (pembelian, upgrade, cancel, rotasi key).
 
 **Autentikasi (Wajib):**
 Setiap request ke KroomBridge harus menyertakan Header:
@@ -65,64 +67,68 @@ Setiap request ke KroomBridge harus menyertakan Header:
   ```
 
 ### D. Cek Info & Kuota Klien
-- **Endpoint**: `GET /api/integration/client-info/:clientId`
-- **Tujuan**: Mengambil status aktif/tidak, sisa kuota, dan pemakaian user untuk ditampilkan di dashboard Panel.
+- **Endpoint**: `GET /api/integration/client-info/:clientId` (Parameter `:clientId` bisa diisi `clientId` KroomBridge ATAU `externalUserId` Panel)
+- **Tujuan**: Mengambil status aktif/tidak, sisa kuota, pemakaian, dan API Key aktif user untuk ditampilkan di dashboard Panel.
+- **Respons (JSON)**:
+  ```json
+  {
+    "clientId": "client_abc123",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "secretKey": "sk_abc123...",
+    "keyVersion": 2,
+    "isActive": true,
+    "status": "active",
+    "packageId": "pkg_pro",
+    "packageName": "Paket Pro",
+    "usageThisMonth": 1250,
+    "quotaType": "token",
+    "costPerRequest": 1,
+    "quotaRemaining": 498750,
+    "quotaPercentage": 1,
+    "lastSeen": "2026-09-17T08:00:00.000Z",
+    "createdAt": "2026-09-01T10:00:00.000Z"
+  }
+  ```
 
 ### E. Ambil Daftar Paket
 - **Endpoint**: `GET /api/integration/packages`
-- **Tujuan**: Menarik daftar paket API KroomBridge secara dinamis untuk ditampilkan di halaman pembelian Kroombox Panel. (Jika Panel tidak punya master paket, bisa pakai ini. Jika Panel punya sistem paket sendiri, abaikan endpoint ini).
-- **Respons (JSON)**: Akan mengembalikan array objek paket yang mencakup `id`, `name`, `price`, `monthlyQuota`, `allowedEndpoints`, dan **`allowedModels`**.
+- **Tujuan**: Menarik daftar paket API KroomBridge secara dinamis untuk ditampilkan di halaman pembelian Kroombox Panel.
+- **Respons (JSON)**: Mengembalikan array objek paket.
 
 ### F. Sinkronisasi Paket dari Panel ke KroomBridge (Buat / Edit Paket)
 - **Endpoint**: `POST /api/integration/webhook/package`
-- **Tujuan**: Dipanggil saat admin di Kroombox Panel membuat atau mengubah paket. Jika ID paket sudah ada, KroomBridge akan otomatis mengupdate paket tersebut. Jika belum ada, paket baru akan otomatis dibuat. Perubahan akan langsung tampil realtime di dashboard KroomBridge.
-- **Body Request (JSON)**:
-  ```json
-  {
-    "id": "pkg_pro",                  // Wajib (ID Paket di Panel)
-    "name": "Paket Pro",              // Wajib
-    "monthlyQuota": 1000000,          // Kuota bulanan
-    "maxRequestsPerMinute": 120,      // Rate limit per menit
-    "quotaType": "token",             // "token", "request", atau "credit"
-    "costPerRequest": 1,              // Jika quotaType = "request"
-    "costPer1KTokens": 20,            // Jika quotaType = "credit"
-    "allowOverage": false,
-    "overageRatePer1K": 0,
-    "allowedEndpoints": ["*"],
-    "allowedModels": ["*"],           // Daftar model yang diizinkan
-    "price": 75000,
-    "description": "Paket Pro Kroombox Panel"
-  }
-  ```
+- **Tujuan**: Dipanggil saat admin di Kroombox Panel membuat atau mengubah paket.
 
 ### G. Edit Sebagian Field Paket dari Panel
 - **Endpoint**: `PATCH /api/integration/webhook/package/:id`
-- **Tujuan**: Mengupdate atribut paket tertentu (misal hanya harga atau kuota).
-- **Body Request (JSON)**:
-  ```json
-  {
-    "price": 85000,
-    "monthlyQuota": 1200000
-  }
-  ```
 
 ### H. Hapus Paket dari Panel
 - **Endpoint**: `DELETE /api/integration/webhook/package/:id`
-- **Query Params**: `?force=true` (opsional jika masih ada klien terhubung)
-- **Tujuan**: Menghapus paket dari KroomBridge.
 
 ### I. Unified Webhook Event Receiver (Alternatif Terpadu)
 - **Endpoint**: `POST /api/integration/webhook/event`
-- **Tujuan**: Menerima event webhook serbaguna dengan struktur format event standar.
+
+### J. Rotasi API Key dari Sisi Panel (BARU)
+- **Endpoint**: `POST /api/integration/webhook/rotate-key`
+- **Tujuan**: Dipanggil saat user atau admin di Panel Kroombox menekan tombol "Rotasi API Key". KroomBridge akan otomatis mengenerate key baru, menonaktifkan key lama, dan mengembalikan key barunya.
 - **Body Request (JSON)**:
   ```json
   {
-    "event": "package:updated", // "package:created", "package:updated", atau "package:deleted"
-    "data": {
-      "id": "pkg_pro",
-      "name": "Paket Pro Max",
-      "monthlyQuota": 2000000
-    }
+    "externalUserId": "usr_12345" // ID user di database Panel (atau bisa pakai "clientId")
+  }
+  ```
+- **Respons (JSON)**:
+  ```json
+  {
+    "success": true,
+    "message": "Secret Key berhasil dirotasi.",
+    "clientId": "client_abc123",
+    "externalUserId": "usr_12345",
+    "oldSecretKey": "sk_lama...",
+    "newSecretKey": "sk_baru_abcdef0123456789...",
+    "keyVersion": 2,
+    "rotatedAt": "2026-09-17T08:50:00.000Z"
   }
   ```
 
@@ -148,7 +154,7 @@ KroomBridge akan melakukan request ke backend Kroombox Panel untuk sinkronisasi 
       "userCategory": "member", 
       "role": "user",
       
-      // (BARU!) Jika Panel mengelola paket, sertakan 'planDetails' di sini
+      // (Opsional) Jika Panel mengelola detail paket
       "planDetails": {
          "monthlyQuota": 500000,
          "maxRequestsPerMinute": 100,
@@ -160,29 +166,115 @@ KroomBridge akan melakukan request ke backend Kroombox Panel untuk sinkronisasi 
 
 ---
 
-## 3. Webhook dari KroomBridge ke Panel (BARU)
-KroomBridge akan menembak HTTP POST ke Kroombox Panel setiap kali **Paket API** ditambah, diedit, atau dihapus langsung melalui KroomBridge Console. Hal ini dilakukan agar Panel mengetahui dan mensinkronisasikan daftar paketnya.
+## 3. Webhook dari KroomBridge ke Panel
 
-**Endpoint yang harus disiapkan oleh Panel:**
-Silakan buat endpoint di backend Panel Anda dan atur URL-nya pada `.env` KroomBridge (`PANEL_WEBHOOK_URL=https://...`).
+KroomBridge akan menembak HTTP POST ke Kroombox Panel (`PANEL_WEBHOOK_URL`) setiap kali terjadi:
+1. **Rotasi Secret Key User** (Admin merotasi key di dashboard KroomBridge).
+2. **Paket API** ditambah, diedit, atau dihapus langsung di KroomBridge.
 
-**Contoh Payload Webhook:**
+**URL Endpoint di Panel:** `https://panel.kroombox.com/api/kroombridge/webhook`
+
+**Headers yang Dikirim KroomBridge:**
+```http
+Content-Type: application/json
+Authorization: Bearer kp_live_...
+webhook_secret: whsec_a1039f0ab2581354eb871c7b0d80dde80aa8d5b83ac14cae
+```
+
+### Event 1: Rotasi API Key User (`client:key_rotated`)
+Event ini terkirim otomatis saat admin KroomBridge menekan tombol **Rotasi Secret Key**.
+
+**Payload JSON:**
 ```json
 {
-  "event": "package:created", // Bisa "package:created", "package:updated", atau "package:deleted"
+  "event": "client:key_rotated",
+  "data": {
+    "clientId": "client_abc123",
+    "externalUserId": "usr_12345",
+    "username": "John Doe",
+    "email": "john@example.com",
+    "oldSecretKey": "sk_lama123...",
+    "newSecretKey": "sk_baru456...",
+    "keyVersion": 2,
+    "rotatedAt": "2026-09-17T08:50:00.000Z"
+  }
+}
+```
+
+**Aksi yang Harus Dilakukan Panel:**
+Update kolom API Key user di database Panel dengan `newSecretKey` berdasarkan `externalUserId` (atau `clientId` / `email`). Dengan begitu:
+- Di dashboard Panel, key baru langsung muncul ke user.
+- Key lama otomatis tidak dapat digunakan lagi.
+
+### Event 2: Paket API (`package:created`, `package:updated`, `package:deleted`)
+```json
+{
+  "event": "package:updated",
   "data": {
     "id": "pkg_12345678",
     "name": "Paket Premium",
     "maxRequestsPerMinute": 100,
     "monthlyQuota": 100000,
     "quotaType": "token",
-    "allowOverage": false,
-    "overageRatePer1K": 0,
-    "allowedEndpoints": ["*"],
-    "price": 50000,
-    "description": "Paket terbaik",
-    "createdAt": "2026-09-02T10:00:00.000Z"
+    "price": 50000
   }
 }
 ```
-*Catatan: Jika `event` adalah `package:deleted`, maka `data` hanya berisi `{ "id": "pkg_12345678" }`.*
+
+---
+
+## 4. Contoh Kode Handler Webhook di Backend Panel
+
+### Contoh Node.js / Express:
+```typescript
+app.post("/api/kroombridge/webhook", async (req, res) => {
+  const secret = req.headers["webhook_secret"] || req.headers["x-webhook-secret"];
+  if (secret !== process.env.KROOMBRIDGE_WEBHOOK_SECRET) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const { event, data } = req.body;
+
+  if (event === "client:key_rotated") {
+    const { externalUserId, clientId, newSecretKey } = data;
+
+    // Update API Key user di database Panel
+    await db.query(
+      "UPDATE users SET api_key = ? WHERE id = ? OR client_id = ?",
+      [newSecretKey, externalUserId, clientId]
+    );
+
+    console.log(`[Panel] Key user ${externalUserId || clientId} berhasil dirotasi.`);
+    return res.json({ success: true, message: "User API key updated in Panel" });
+  }
+
+  res.json({ received: true });
+});
+```
+
+### Contoh PHP / Laravel:
+```php
+public function handleKroomBridgeWebhook(Request $request)
+{
+    $secret = $request->header('webhook_secret');
+    if ($secret !== config('services.kroombridge.webhook_secret')) {
+        return response()->json(['error' => 'Unauthorized'], 401);
+    }
+
+    $event = $request->input('event');
+    $data = $request->input('data');
+
+    if ($event === 'client:key_rotated') {
+        $userId = $data['externalUserId'] ?? null;
+        $newKey = $data['newSecretKey'];
+
+        \DB::table('users')
+            ->where('id', $userId)
+            ->update(['api_key' => $newKey]);
+
+        return response()->json(['success' => true]);
+    }
+
+    return response()->json(['received' => true]);
+}
+```

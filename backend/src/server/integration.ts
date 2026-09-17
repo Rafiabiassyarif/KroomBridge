@@ -284,12 +284,19 @@ integrationRouter.post(
 // ============================================================
 // GET /api/integration/client-info/:clientId
 // ============================================================
-// Digunakan KroomBridge Panel untuk mengecek status klien.
+// Digunakan KroomBridge Panel untuk mengecek status & key klien.
 integrationRouter.get(
   "/client-info/:clientId",
   verifyWebhookSecret,
   (req: Request, res: Response) => {
-    const client = db.getClient(req.params.clientId);
+    let client = db.getClient(req.params.clientId);
+    if (!client) {
+      // Fallback: cari berdasarkan externalUserId di tags
+      client =
+        db
+          .getClients()
+          .find((c) => c.tags?.includes(`external:${req.params.clientId}`)) || null;
+    }
 
     if (!client) {
       return res.status(404).json({ error: "Klien tidak ditemukan" });
@@ -302,6 +309,8 @@ integrationRouter.get(
       clientId: client.id,
       name: client.name,
       email: client.email,
+      secretKey: client.secretKey,
+      keyVersion: client.keyVersion ?? 1,
       isActive: client.isActive,
       status: client.status,
       packageId: client.packageId,
@@ -319,6 +328,61 @@ integrationRouter.get(
           : 0,
       lastSeen: client.lastSeen,
       createdAt: client.createdAt,
+    });
+  },
+);
+
+// ============================================================
+// POST /api/integration/webhook/rotate-key
+// ============================================================
+// Dipanggil oleh Kroombox Panel saat user meminta rotasi key langsung dari Panel
+integrationRouter.post(
+  "/webhook/rotate-key",
+  verifyWebhookSecret,
+  (req: Request, res: Response) => {
+    const { clientId, externalUserId } = req.body;
+
+    if (!clientId && !externalUserId) {
+      return res.status(400).json({
+        error: "clientId atau externalUserId wajib diisi.",
+      });
+    }
+
+    let client = clientId ? db.getClient(clientId) : null;
+    if (!client && externalUserId) {
+      client =
+        db.getClient(externalUserId) ||
+        db.getClients().find((c) => c.tags?.includes(`external:${externalUserId}`)) ||
+        null;
+    }
+
+    if (!client) {
+      return res.status(404).json({ error: "Klien tidak ditemukan di KroomBridge" });
+    }
+
+    const oldSecretKey = client.secretKey;
+    const newSecretKey = `sk_${uuidv4().replace(/-/g, "")}`;
+    const newKeyVersion = (client.keyVersion ?? 1) + 1;
+
+    const updated = db.updateClient(client.id, {
+      secretKey: newSecretKey,
+      keyVersion: newKeyVersion,
+    });
+
+    broadcast({
+      type: "client:change",
+      data: { action: "rotated", client: updated },
+    });
+
+    res.json({
+      success: true,
+      message: "Secret Key berhasil dirotasi.",
+      clientId: client.id,
+      externalUserId: externalUserId || client.id,
+      oldSecretKey,
+      newSecretKey,
+      keyVersion: newKeyVersion,
+      rotatedAt: new Date().toISOString(),
     });
   },
 );
