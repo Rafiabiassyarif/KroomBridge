@@ -164,6 +164,12 @@ KroomBridge akan melakukan request ke backend Kroombox Panel untuk sinkronisasi 
   ]
   ```
 
+> **Catatan Filter Sinkronisasi KroomBridge:**
+> KroomBridge hanya akan mengimpor user yang:
+> 1. Berstatus **`ACTIVE`**.
+> 2. Menggunakan paket API KroomBridge (misal: `Free` / `Gratis`, `Starter`, `Basic`, `Pro`).
+> User yang berstatus non-aktif atau hanya berlangganan layanan server/hosting (seperti *Dedicated JS Stack*, *Minibox*, dll.) akan **otomatis diabaikan** oleh KroomBridge.
+
 ---
 
 ## 3. Webhook dari KroomBridge ke Panel

@@ -772,14 +772,14 @@ adminRouter.patch("/packages/:id", (req: Request, res: Response) => {
 // DELETE /api/admin/packages/:id
 adminRouter.delete("/packages/:id", async (req: Request, res: Response) => {
   const pkgId = req.params.id;
-  const isUsed = db.getClients().some((c) => c.packageId === pkgId);
 
-  if (isUsed) {
-    return res.status(400).json({
-      error:
-        "Tidak dapat menghapus paket karena masih digunakan oleh satu atau lebih klien.",
-      hint: "Pindahkan semua klien ke paket lain terlebih dahulu.",
-    });
+  // Jika paket masih digunakan oleh klien, pindahkan klien tersebut ke paket default 'pkg_free'
+  const clients = db.getClients().filter((c) => c.packageId === pkgId);
+  if (clients.length > 0) {
+    const fallbackPkg = db.getPackages().find((p) => p.id !== pkgId) || { id: "pkg_free" };
+    for (const c of clients) {
+      db.updateClient(c.id, { packageId: fallbackPkg.id });
+    }
   }
 
   try {

@@ -403,48 +403,29 @@ export default function ClientsView() {
                       </td>
                       <td className="px-4 sm:px-6 lg:px-8 py-5">
                         {(() => {
-                          const isToken = pkg?.quotaType === "token";
                           const costPer1K = pkg?.costPer1KTokens || 20;
                           const usedTokens = convertRpToTokens(client.usageThisMonth, costPer1K);
                           const totalTokens = convertRpToTokens(activeQuota, costPer1K);
 
                           return (
                             <div className="select-none transition-all">
-                              {isToken ? (
-                                <div>
-                                  <div className="text-slate-800 dark:text-slate-100 font-extrabold text-sm flex items-center gap-1.5">
-                                    <span>{client.usageThisMonth.toLocaleString("id-ID")}</span>
-                                    <span className="text-slate-400 dark:text-slate-500 font-medium text-xs">
-                                      / {activeQuota.toLocaleString("id-ID")} token
-                                    </span>
-                                    <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-1.5 py-0.2 rounded-md">
-                                      {formatTokensCompact(activeQuota)}
-                                    </span>
-                                  </div>
-                                  <div className="text-[11px] text-blue-500 dark:text-blue-400 font-mono mt-0.5 flex items-center gap-1.5">
-                                    <Cpu className="w-3 h-3 text-blue-500" />
-                                    <span>Paket Kuota Token AI</span>
-                                  </div>
+                              <div>
+                                <div className="text-slate-800 dark:text-slate-100 font-extrabold text-sm flex items-center gap-1.5">
+                                  <span>Rp {client.usageThisMonth.toLocaleString("id-ID")}</span>
+                                  <span className="text-slate-400 dark:text-slate-500 font-medium text-xs">
+                                    / Rp {activeQuota.toLocaleString("id-ID")}
+                                  </span>
                                 </div>
-                              ) : (
-                                <div>
-                                  <div className="text-slate-800 dark:text-slate-100 font-extrabold text-sm flex items-center gap-1.5">
-                                    <span>Rp {client.usageThisMonth.toLocaleString("id-ID")}</span>
-                                    <span className="text-slate-400 dark:text-slate-500 font-medium text-xs">
-                                      / Rp {activeQuota.toLocaleString("id-ID")}
-                                    </span>
-                                  </div>
-                                  <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 flex items-center gap-1.5">
-                                    <Zap className="w-3 h-3 text-emerald-500" />
-                                    <span>
-                                      ≈ {usedTokens.toLocaleString("id-ID")} / {totalTokens.toLocaleString("id-ID")} token
-                                    </span>
-                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.2 rounded">
-                                      {formatTokensCompact(totalTokens)}
-                                    </span>
-                                  </div>
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 flex items-center gap-1.5">
+                                  <Zap className="w-3 h-3 text-emerald-500" />
+                                  <span>
+                                    ≈ {usedTokens.toLocaleString("id-ID")} / {totalTokens.toLocaleString("id-ID")} token
+                                  </span>
+                                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 px-1.5 py-0.2 rounded">
+                                    {formatTokensCompact(totalTokens)}
+                                  </span>
                                 </div>
-                              )}
+                              </div>
                             </div>
                           );
                         })()}

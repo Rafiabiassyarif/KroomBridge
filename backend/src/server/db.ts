@@ -236,6 +236,56 @@ export const initMySQL = async () => {
     }
   }
 
+  try {
+    // 1. Migrasi otomatis: Ubah semua paket 'token' lama menjadi 'credit' (Saldo Rp)
+    await pool.query("UPDATE packages SET quotaType = 'credit' WHERE quotaType = 'token'");
+
+    // 2. Hapus klien yang sempat tersinkronisasi dari paket non-KroomBridge (VPS / hosting)
+    await pool.query(`
+      DELETE FROM clients 
+      WHERE packageId LIKE 'pkg_178%' 
+         OR notes LIKE 'Synced from Kroombox Panel. Plan: Dedicated%' 
+         OR notes LIKE 'Synced from Kroombox Panel. Plan: Minibox%' 
+         OR notes LIKE 'Synced from Kroombox Panel. Plan: JS Env%' 
+         OR notes LIKE 'Synced from Kroombox Panel. Plan: Kolab%' 
+         OR notes LIKE 'Synced from Kroombox Panel. Plan: Startup%'
+    `);
+
+    // 3. Hapus paket-paket auto-generated tersebut dari tabel packages
+    await pool.query(`
+      DELETE FROM packages 
+      WHERE description LIKE 'Auto-generated package%' 
+         OR id LIKE 'pkg_178%'
+    `);
+
+    // 4. Pindahkan klien yang tadinya salah masuk ke 'pkg_basic' (karena nama plan panel "Basic") ke paket 'pkg_free' (Free Tier)
+    await pool.query("UPDATE clients SET packageId = 'pkg_free' WHERE packageId = 'pkg_basic'");
+
+    // 5. Hapus duplikat klien yang memiliki email sama (simpan 1 record yang memiliki pemakaian atau yang lebih lama)
+    await pool.query(`
+      DELETE c1 FROM clients c1
+      INNER JOIN clients c2 
+      WHERE c1.id != c2.id 
+        AND c1.email IS NOT NULL 
+        AND c1.email != '' 
+        AND LOWER(c1.email) = LOWER(c2.email)
+        AND (c1.usageThisMonth < c2.usageThisMonth OR (c1.usageThisMonth = c2.usageThisMonth AND c1.createdAt > c2.createdAt))
+    `);
+
+    // 6. Hapus duplikat klien yang memiliki nama sama jika ada duplikasi ID
+    await pool.query(`
+      DELETE c1 FROM clients c1
+      INNER JOIN clients c2 
+      WHERE c1.id != c2.id 
+        AND c1.name IS NOT NULL 
+        AND c1.name != '' 
+        AND LOWER(c1.name) = LOWER(c2.name)
+        AND (c1.usageThisMonth < c2.usageThisMonth OR (c1.usageThisMonth = c2.usageThisMonth AND c1.createdAt > c2.createdAt))
+    `);
+  } catch (err: any) {
+    console.warn("[MySQL] Auto-cleanup error:", err.message);
+  }
+
   // ─── Default Package Seeder ──────────────────────────────────
   try {
     const [pkgCount]: any = await pool.query("SELECT COUNT(*) as cnt FROM packages");
